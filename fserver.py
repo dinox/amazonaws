@@ -1,11 +1,19 @@
 from twisted.web import server, resource
-from twisted.internet import reactor
+from twisted.internet import reactor, threads
+from multiprocessing import Process, Queue
 
-def f(n):
+def f(n, q):
     k = 1
     for i in range(1,n+1):
         k *= i
-    return k
+    q.put(k % 100003)
+
+def MPFib(n):
+    q = Queue()
+    p = Process(target=f, args=(n,q))
+    p.start()
+    p.join()
+    return q.get()
 
 
 class FacultyResource(resource.Resource):
@@ -17,7 +25,14 @@ class FacultyResource(resource.Resource):
 
     def render_GET(self, request):
         request.setHeader("content-type", "text/plain")
-        return str(f(self.n) % 100003) + "\n"
+        d = threads.deferToThread(MPFib, self.n)
+
+        def write_reply(msg):
+            request.write(str(msg) + "\n")
+            request.finish()
+
+        d.addCallback(write_reply)
+        return server.NOT_DONE_YET
 
 class Faculty(resource.Resource):
     def getChild(self, name, request):
