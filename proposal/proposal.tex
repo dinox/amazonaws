@@ -77,9 +77,10 @@
 
 \subsection{Application}
 
-For the benchmarking and the auto-scaling, we will use a simple web-server scenario. There are two types of machines, load-balancers and worker machines. The load-balancers get an ip from a predefined pool of elastic-ip's, such that requests from clients can be sent to them. All load-balancer connect to the overlay network and receive the list of worker machines from the coordinator. Incoming request are sent to a worker machine using a load-balancing technique. Therefore load-balancers are connected to all machines in the network, where as worker machines are only connected to the load-balancers.
-The worker machines process the request and contain no further application logic, they aren't members of the overlay network.
-The members of the overlay network (load-balancers) elect a coordinator and perform a re-electing in case the coordinator dies.
+
+We will use a simple web-server scenario for the benchmarking and the auto-scaling. There are two types of machines: load-balancers and worker machines. The load-balancers get an IP from a predefined pool of Elastic-IP's such that requests from clients can be sent to them. All load-balancers connect to the overlay network and receive the list of worker machines from the coordinator. Incoming request are sent to a worker machine using a load-balancing technique. In this way load-balancers are connected to all machines in the network, whereas worker machines are only connected to the load-balancers.
+The worker machines process the request and contain no further application logic, which means they are not members of the overlay network.
+The members of the overlay network (the load-balancers) elect a coordinator and perform a re-electing in case the coordinator dies.
 
 \tikzset{
   treenode/.style = {align=center, inner sep=0pt, text centered,
@@ -109,11 +110,11 @@ The members of the overlay network (load-balancers) elect a coordinator and perf
 
 \subsection{Benchmark}
 
-The benchmark contains latency measurements between machines in the Amazon cloud (cloud to cloud) and a latency test of the application from a client outside the Amazon cloud (client to cloud). Additionally, the benchmarking contains machine performance, mainly cpu speed (optional: memory). The benchmark will be initiated by the coordinator and executed on each machine for the performance benchmark. The latency benchmark is performed on the load balancers, they test the latency on the network to all running machines in the cloud (other load balancers as well as all the worker machines).
+The benchmark contains latency measurements between machines in the Amazon cloud (cloud to cloud), and a latency test of the application from a client outside the Amazon cloud (client to cloud). Additionally, the benchmarking contains machine performance, mainly CPU speed (optional: memory). The benchmark will be initiated by the coordinator and executed on each machine for the performance benchmark. The latency benchmark is performed on the load-balancers; they test the latency on the network to all running machines in the cloud (other load balancers as well as all the worker machines).
 
 \subsection{Auto-scaling}
 
-The auto-scaling is performed by the coordinator. If the load on the worker machines is too large, the coordinator will scale-up some machines or start new machines (scale-out). The load-balancers can be scaled-up and scaled-out as well, if they cannot handle the submitted workload. For the scale-out there will be a snapshot with the installed application to improve the start-up time. 
+The coordinator performs the auto-scaling. If the load on the worker machines is too large, the coordinator will scale-up some machines or start new machines (scale-out). The load-balancers can be scaled-up and scaled-out as well, if they cannot handle the submitted workload. For the scale-out there will be a snapshot with the installed application to improve the start-up time. 
 If the workload decreases, the reverse will be done.
 In this part we will compare the Amazon load-balancer with our own implementation of a load-balancer, where we detect heavy-loaded machines if the latency increases or from periodically running benchmarks.
 
