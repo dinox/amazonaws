@@ -2,11 +2,27 @@ from twisted.web import server, resource
 from twisted.internet import reactor, threads
 from multiprocessing import Process, Queue
 
+import optparse
+
+def parse_args():
+    usage = """usage: %prog [options]"""
+
+    parser = optparse.OptionParser(usage)
+
+    help = "The port to listen on. Default to a random available port."
+    parser.add_option('-p', '--port', type='int', help=help)
+
+    options, args = parser.parse_args()
+
+    return options
+
+
+
 def f(n, q):
     k = 1
     for i in range(1,n+1):
         k *= i
-    q.put(k % 100003)
+    q.put(k)
 
 def MPFib(n):
     q = Queue()
@@ -38,5 +54,8 @@ class Faculty(resource.Resource):
     def getChild(self, name, request):
         return FacultyResource(int(name))
 
-reactor.listenTCP(8080, server.Site(Faculty()))
+options = parse_args()
+port = options.port or 8080
+
+reactor.listenTCP(port, server.Site(Faculty()))
 reactor.run()
