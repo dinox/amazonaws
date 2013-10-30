@@ -114,9 +114,8 @@ The benchmark contains latency measurements between machines in the Amazon cloud
 Additionally,the performance of the system is benchmarked by various workloads (e.g. 1000 request per second from a client). These benchmarks test will be performed with different numbers of worker machines, but a fixed number of two load-balancers.
 
 \subsection{Auto-scaling}
-!ERIK: Remove the SCALE-UP, we do only SCALE-OUT!
 
-The coordinator in the load balancer network performs the auto-scaling. If the load on the worker machines is too large, the coordinator will scale-up some machines or start new machines (scale-out). For the scale-out there will be a snapshot with the installed application to improve the start-up time. 
+The coordinator in the load balancer network performs the auto-scaling. If the load on the worker machines is too large, the coordinator will start new machines (scale-out). For the scale-out there will be a snapshot with the installed application to improve the start-up time. 
 If the workload decreases, the reverse will be done.
 In this part we will compare the Amazon load-balancer with our own implementation of a load-balancer, where we detect heavy-loaded machines if the latency increases or from periodically sending ping messages.
 
