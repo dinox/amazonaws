@@ -20,7 +20,7 @@
 
 \documentclass[paper=a4, fontsize=11pt]{scrartcl} % A4 paper and 11pt font size
 
-\usepackage[landscape,twocolumn,margin=2cm]{geometry}
+\usepackage[landscape,twocolumn,margin=1.8cm]{geometry}
 \usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
 \usepackage{fourier} % Use the Adobe Utopia font for the document - comment this line to return to the LaTeX default
 \usepackage[english]{babel} % English language/hyphenation
@@ -110,9 +110,11 @@ The members of the overlay network (the load-balancers) elect a coordinator and 
 
 \subsection{Benchmark}
 
-The benchmark contains latency measurements between machines in the Amazon cloud (cloud to cloud), and a latency test of the application from a client outside the Amazon cloud (client to cloud). Additionally, the benchmarking contains machine performance, mainly CPU speed (optional: memory). The benchmark will be initiated by the coordinator and executed on each machine for the performance benchmark. The latency benchmark is performed on the load-balancers; they test the latency on the network to all running machines in the cloud (other load balancers as well as all the worker machines).
+The benchmark contains latency measurements between machines in the Amazon cloud (cloud to cloud), and a latency test of the application from a client outside the Amazon cloud (client to cloud). The benchmark will be initiated by the coordinator and executed on each machine for the performance benchmark. The latency benchmark is performed on the load-balancers; they test the latency on the network to all running machines in the cloud (other load balancers as well as all the worker machines). These results will be used to optimize load-balancing as well as for the auto scaling.
+Additionally,the performance of the system is benchmarked by various workloads (e.g. 1000 request per second from a client). These benchmarks test will be performed with different numbers of worker machines, but a fixed number of two load-balancers.
 
 \subsection{Auto-scaling}
+!ERIK: Remove the SCALE-UP, we do only SCALE-OUT!
 
 The coordinator performs the auto-scaling. If the load on the worker machines is too large, the coordinator will scale-up some machines or start new machines (scale-out). The load-balancers can be scaled-up and scaled-out as well, if they cannot handle the submitted workload. For the scale-out there will be a snapshot with the installed application to improve the start-up time. 
 If the workload decreases, the reverse will be done.
