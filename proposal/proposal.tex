@@ -80,7 +80,7 @@
 
 We will use a simple web-server scenario for the benchmarking and the auto-scaling. There are two types of machines: load-balancers and worker machines. The load-balancers get an IP from a predefined pool of Elastic-IP's such that requests from clients can be sent to them. All load-balancers connect to the overlay network and receive the list of worker machines from the coordinator. Incoming request are sent to a worker machine using a load-balancing technique. In this way load-balancers are connected to all machines in the network, whereas worker machines are only connected to the load-balancers.
 The worker machines process the request and contain no further application logic, which means they are not members of the overlay network.
-The members of the overlay network (the load-balancers) elect a coordinator and perform a re-electing in case the coordinator dies.
+The members of the overlay network (the load-balancers) elect a coordinator and perform a re-electing in case the coordinator dies. We will study the case with exactly two load-balancers, but it is of course easy to scale this up.
 
 \tikzset{
   treenode/.style = {align=center, inner sep=0pt, text centered,
@@ -114,8 +114,8 @@ The benchmark contains latency measurements between machines in the Amazon cloud
 
 \subsection{Auto-scaling}
 
-The coordinator performs the auto-scaling. If the load on the worker machines is too large, the coordinator will scale-up some machines or start new machines (scale-out). The load-balancers can be scaled-up and scaled-out as well, if they cannot handle the submitted workload. For the scale-out there will be a snapshot with the installed application to improve the start-up time. 
+The coordinator in the load balancer network performs the auto-scaling. If the load on the worker machines is too large, the coordinator will scale-up some machines or start new machines (scale-out). For the scale-out there will be a snapshot with the installed application to improve the start-up time. 
 If the workload decreases, the reverse will be done.
-In this part we will compare the Amazon load-balancer with our own implementation of a load-balancer, where we detect heavy-loaded machines if the latency increases or from periodically running benchmarks.
+In this part we will compare the Amazon load-balancer with our own implementation of a load-balancer, where we detect heavy-loaded machines if the latency increases or from periodically sending ping messages.
 
 \end{document}
