@@ -82,17 +82,20 @@ class OverlayService(object):
         
     def JoinReceived(self, reply):
         print "JoinReceived"
-        return
+        return None
         
     def Join(self, reply):
         if self.overlay.is_coordinator:
-            return json.dumps({"command":"join_accept"})
-        return json.dumps({"command":"error"})
+            return {"command":"join_accept"}
+        return {"command":"error"}
         
+    def Error(self, reply):
+        return Exception()
 
     commands = {"ok" : OK,
                 "join_accept" : JoinReceived,
-                "join" : Join }
+                "join" : Join,
+                "error" : Error}
 
 class ClientProtocol(NetstringReceiver):
     def connectionMade(self):
@@ -113,7 +116,7 @@ class ClientProtocol(NetstringReceiver):
             self.transport.loseConnection()
             return
 
-        self.factory.handeReply(command, reply)
+        self.factory.handleReply(command, reply)
 
 class ServerProtocol(NetstringReceiver):
     def stringReceived(self, request):
@@ -206,15 +209,16 @@ class Overlay():
         
             print "tcp before"
             factory = NodeClientFactory(OverlayService(self), {"command" : "join"})
-            reactor.connectTCP(monitor["host"], monitor["tcp_port"], factory)
+            reactor.connectTCP(node["host"], node["tcp_port"], factory)
             print "tcp finished"
             #factory.deferred.addCallback(result.callback)
             #if not result.success:
             #    print "raise exception"
             #    raise
+            factory.deferred.addCallback(lambda _: node)
             return factory.deferred
-        def success(_,node):
-            print "success"
+        def success(node):
+            print "success " + str(node)
             coordinator = node
         def error(_):
             log.err("ERROR")
