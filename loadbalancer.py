@@ -139,6 +139,3 @@ lbs.setServiceParent(application)
 
 atexit.register(before_exit)
 
-from twisted.internet import reactor
-reactor.run()
-
