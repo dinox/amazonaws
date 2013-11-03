@@ -1,4 +1,5 @@
 from twisted.application import service
+from twisted.internet.task import LoopingCall
 import os, sys, time, atexit
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -10,10 +11,11 @@ from twisted.internet.protocol import Factory, Protocol, ClientFactory,\
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.basic import NetstringReceiver
 
-from txlb import manager
+from txlb import manager, config
 from txlb.model import HostMapper
 from txlb.schedulers import roundr, leastc
 from txlb.application.service import LoadBalancedService
+from txlb.manager import checker
 
 typ = roundr
 
@@ -39,6 +41,17 @@ proxyServices = [
   HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host9',
       address='127.0.0.1:10009'),
 ]
+
+# Amazon AWS commands
+class AmazonAWS(object):
+    def __init__(self):
+        self.conn = boto.ec2.connect_to_region("us-west-2")
+
+    def start_worker(self):
+        return self.conn.run_instances("ami-64ad3554", key_name='herik#cburkhal', instance_type='t1.micro')
+
+    def term_worker(self, worker):
+        return self.conn.terminate_instances(instance_ids=[w.id for w in worker.instances])
 
 # overlay commands
 class OverlayService(service.Service):
@@ -132,6 +145,8 @@ def before_exit():
 application = service.Application('Demo LB Service')
 pm = manager.proxyManagerFactory(proxyServices)
 lbs = LoadBalancedService(pm)
+configuration = config.Config("config.xml")
+print configuration.manager.toXML()
 print pm.trackers
 os = OverlayService(pm.getTracker('proxy1', 'group1'))
 os.setServiceParent(application)
