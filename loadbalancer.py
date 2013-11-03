@@ -5,11 +5,13 @@ import os, sys, time, atexit
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(SCRIPT_DIR, 'txlb'))
 
-from twisted.internet import reactor
+from twisted.internet import defer, reactor
+from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Factory, Protocol, ClientFactory,\
         ServerFactory, DatagramProtocol
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.basic import NetstringReceiver
+from twisted.python import log
 
 from txlb import manager, config
 from txlb.model import HostMapper
@@ -54,7 +56,7 @@ class AmazonAWS(object):
         return self.conn.terminate_instances(instance_ids=[w.id for w in worker.instances])
 
 # overlay commands
-class OverlayService(service.Service):
+class LoadBalanceService(service.Service):
 
     def __init__(self, tracker):
         self.tracker = tracker
@@ -65,23 +67,34 @@ class OverlayService(service.Service):
         service.Service.startService(self)
 
     def reccuring(self):
-        print self.tracker.getStats()
-
-# Overlay Communication
-class OverlayService2(object):
-    def OK(self, reply):
+        #print self.tracker.getStats()
         pass
 
-    commands = {"ok" : OK }
+# Overlay Communication
+class OverlayService(object):
+    overlay = None
+
+    def OK(self, reply):
+        pass
+        
+    def JoinReceived(self, reply):
+        print "JoinReceived"
+        return
+        
+
+    commands = {"ok" : OK,
+                "join_accept" : JoinReceived }
 
 class ClientProtocol(NetstringReceiver):
     def connectionMade(self):
         self.sendRequest(self.factory.request)
 
     def sendRequest(self, request):
+        print request
         self.sendString(json.dumps(request))
 
     def stringReceived(self, reply):
+        print reply
         self.transport.loseConnection()
         reply = json.loads(reply)
         command = reply["command"]
@@ -112,28 +125,102 @@ class ServerProtocol(NetstringReceiver):
             self.sendString(json.dumps(reply))
 
         self.transport.loseConnection()
+        
+class NodeClientFactory(ClientFactory):
+
+    protocol = ClientProtocol
+
+    def __init__(self, service, request):
+        self.request = request
+        self.service = service
+        self.deferred = defer.Deferred()
+
+    def handleReply(self, command, reply):
+        def handler(reply):
+            return self.service.commands[command](self.service, reply)
+        cmd_handler = self.service.commands[command]
+        if cmd_handler is None:
+            return None
+        self.deferred.addCallback(handler)
+        self.deferred.callback(reply)
+
+    def clientConnectionFailed(self, connector, reason):
+        if self.deferred is not None:
+            d, self.deferred = self.deferred, None
+            d.errback(reason)
+
+class NodeServerFactory(ServerFactory):
+
+    protocol = ServerProtocol
+
+    def __init__(self, service):
+        self.service = service
+
+    def reply(self, command, data):
+        create_reply = self.service.commands[command]
+        if create_reply is None: # no such command
+            return None
+        try:
+            return create_reply(self.service, data)
+        except:
+            traceback.print_exc()
+            return None # command failed
+        
+
 
 # initialization
-class ConnectOverlay(Protocol):
-    def sendMessage(self, msg):
-        self.transport.write("test %s\n" % msg)
+class Overlay():
+    is_coordinator = False
+    coordinator = None
+    members = []
+    
+    def join(self):
+        print "start join"
+        def send(_, node):
+            class ReturnValue():
+                def __init__(self):
+                    self.success = False
+                def callback(self):
+                    self.success = True
+                    
+            result = ReturnValue()
+        
+            print "tcp before"
+            factory = NodeClientFactory(OverlayService(), {"command" : "join"})
+            reactor.connectTCP(monitor["host"], monitor["tcp_port"], factory)
+            print "tcp finished"
+            #factory.deferred.addCallback(result.callback)
+            #if not result.success:
+            #    print "raise exception"
+            #    raise
+            return factory.deferred
+        def success(_,node):
+            print "success"
+            coordinator = node
+        def error(_):
+            log.err("ERROR")
+            is_coordinator = True
+            print "I am coordinator"
+        # search for running loadbalancers and join the overlay network
+        nodes = self.read_config()
+        initialized = False
+        d = Deferred()
+        print nodes
+        for node in nodes:
+            print "add node" + str(node)
+            d.addErrback(send, node)
+        d.addCallbacks(success, error)
+        
+        d.errback(0)           
 
-class ConnectOverlayFactory(Factory):
-    def buildProtocol(self, addr):
-        return ConnectOverlay()
-
-def sendMessage(p):
-    p.sendMessage("1")
-    reactor.callLater(1, p.transport.loseConnection)
-
-
-def read_config():
-    f = open("load_balancers.txt", "r")
-    nodes = []
-    for line in f:
-        s = line.split(":")
-        nodes.append({"ip":s[0],"port":int(s[1].strip())})
-    return nodes
+    def read_config(self):
+        # read loadbalancer ip's
+        f = open("load_balancers.txt", "r")
+        nodes = []
+        for line in f:
+            s = line.split(":")
+            nodes.append({"ip":s[0],"port":int(s[1].strip())})
+        return nodes
 
 def init():
     pass
@@ -141,12 +228,15 @@ def init():
 # cleanup and exit
 def before_exit():
     sys.exit(0)
+    
+o = Overlay()
+o.join()
+print "start overlay"
 
 application = service.Application('Demo LB Service')
 pm = manager.proxyManagerFactory(proxyServices)
 lbs = LoadBalancedService(pm)
 configuration = config.Config("config.xml")
-print configuration.manager.toXML()
 print pm.trackers
 os = OverlayService(pm.getTracker('proxy1', 'group1'))
 os.setServiceParent(application)
