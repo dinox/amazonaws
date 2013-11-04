@@ -80,7 +80,7 @@ class OverlayService(object):
     def OK(self, reply):
         pass
 
-    def JoinReceived(self, reply):
+    def JoinAccepted(self, reply):
         print "JoinReceived"
         return None
 
@@ -94,7 +94,7 @@ class OverlayService(object):
         return "error"
 
     commands = {"ok" : OK,
-                "join_accept" : JoinReceived,
+                "join_accept" : JoinAccepted,
                 "join" : Join,
                 "error" : Error}
 
