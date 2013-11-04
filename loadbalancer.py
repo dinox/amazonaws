@@ -1,6 +1,6 @@
 from twisted.application import service
+import os, sys, time, atexit, json, traceback
 from twisted.internet.task import LoopingCall
-import os, sys, time, atexit
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(SCRIPT_DIR, 'txlb'))
@@ -73,17 +73,29 @@ class LoadBalanceService(service.Service):
 # Overlay Communication
 class OverlayService(object):
     overlay = None
+    
+    def __init__(self, o):
+        self.overlay = o
 
     def OK(self, reply):
         pass
         
     def JoinReceived(self, reply):
         print "JoinReceived"
-        return
+        return None
         
+    def Join(self, reply):
+        if self.overlay.is_coordinator:
+            return {"command":"join_accept"}
+        return {"command":"error"}
+        
+    def Error(self, reply):
+        return Exception()
 
     commands = {"ok" : OK,
-                "join_accept" : JoinReceived }
+                "join_accept" : JoinReceived,
+                "join" : Join,
+                "error" : Error}
 
 class ClientProtocol(NetstringReceiver):
     def connectionMade(self):
@@ -104,10 +116,11 @@ class ClientProtocol(NetstringReceiver):
             self.transport.loseConnection()
             return
 
-        self.factory.handeReply(command, reply)
+        self.factory.handleReply(command, reply)
 
 class ServerProtocol(NetstringReceiver):
     def stringReceived(self, request):
+        print request
         command = json.loads(request)["command"]
         data = json.loads(request)
 
@@ -174,6 +187,15 @@ class Overlay():
     coordinator = None
     members = []
     
+    def init(self, tcp, udp):
+        service = OverlayService(self)
+        factory = NodeServerFactory(service)
+        listen_tcp = reactor.listenTCP(tcp, factory)
+        log.msg("init", 'Listening on %s.' % (listen_tcp.getHost()))
+        print("node init, listening on "+str(listen_tcp.getHost()))
+        
+        self.join()
+    
     def join(self):
         print "start join"
         def send(_, node):
@@ -186,16 +208,17 @@ class Overlay():
             result = ReturnValue()
         
             print "tcp before"
-            factory = NodeClientFactory(OverlayService(), {"command" : "join"})
-            reactor.connectTCP(monitor["host"], monitor["tcp_port"], factory)
+            factory = NodeClientFactory(OverlayService(self), {"command" : "join"})
+            reactor.connectTCP(node["host"], node["tcp_port"], factory)
             print "tcp finished"
             #factory.deferred.addCallback(result.callback)
             #if not result.success:
             #    print "raise exception"
             #    raise
+            factory.deferred.addCallback(lambda _: node)
             return factory.deferred
-        def success(_,node):
-            print "success"
+        def success(node):
+            print "success " + str(node)
             coordinator = node
         def error(_):
             log.err("ERROR")
@@ -219,7 +242,7 @@ class Overlay():
         nodes = []
         for line in f:
             s = line.split(":")
-            nodes.append({"ip":s[0],"port":int(s[1].strip())})
+            nodes.append({"host":s[0],"tcp_port":int(s[1].strip())})
         return nodes
 
 def init():
@@ -228,18 +251,24 @@ def init():
 # cleanup and exit
 def before_exit():
     sys.exit(0)
-    
-o = Overlay()
-o.join()
-print "start overlay"
 
-application = service.Application('Demo LB Service')
-pm = manager.proxyManagerFactory(proxyServices)
-lbs = LoadBalancedService(pm)
-configuration = config.Config("config.xml")
-print pm.trackers
-os = OverlayService(pm.getTracker('proxy1', 'group1'))
-os.setServiceParent(application)
-lbs.setServiceParent(application)
+# main
+def initApplication():
+    application = service.Application('Demo LB Service')
 
-atexit.register(before_exit)
+    o = Overlay()
+    o.init(12345, 12346)
+    print "start overlay"
+
+    pm = manager.proxyManagerFactory(proxyServices)
+    lbs = LoadBalancedService(pm)
+    #configuration = config.Config("config.xml")
+    #print pm.trackers
+    os = LoadBalanceService(pm.getTracker('proxy1', 'group1'))
+    os.setServiceParent(application)
+    lbs.setServiceParent(application)
+
+    atexit.register(before_exit)
+    return application
+
+application = initApplication()
