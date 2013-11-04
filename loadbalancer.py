@@ -73,24 +73,25 @@ class LoadBalanceService(service.Service):
 # Overlay Communication
 class OverlayService(object):
     overlay = None
-    
+
     def __init__(self, o):
         self.overlay = o
 
     def OK(self, reply):
         pass
-        
+
     def JoinReceived(self, reply):
         print "JoinReceived"
         return None
-        
+
     def Join(self, reply):
         if self.overlay.is_coordinator:
             return {"command":"join_accept"}
-        return {"command":"error"}
-        
+        return {"command":"fail"}
+
     def Error(self, reply):
-        return Exception()
+        print "receive error"
+        return "error"
 
     commands = {"ok" : OK,
                 "join_accept" : JoinReceived,
@@ -110,12 +111,10 @@ class ClientProtocol(NetstringReceiver):
         self.transport.loseConnection()
         reply = json.loads(reply)
         command = reply["command"]
-
         if command not in self.factory.service.commands:
             print "Command <%s> does not exist!" % command
             self.transport.loseConnection()
-            return
-
+            return self.factory.deferred.errback(0)
         self.factory.handleReply(command, reply)
 
 class ServerProtocol(NetstringReceiver):
@@ -123,22 +122,18 @@ class ServerProtocol(NetstringReceiver):
         print request
         command = json.loads(request)["command"]
         data = json.loads(request)
-
         if command not in self.factory.service.commands:
             print "Command <%s> does not exist!" % command
             self.transport.loseConnection()
             return
-
         self.commandReceived(command, data)
 
     def commandReceived(self, command, data):
         reply = self.factory.reply(command, data)
-
         if reply is not None:
             self.sendString(json.dumps(reply))
-
         self.transport.loseConnection()
-        
+
 class NodeClientFactory(ClientFactory):
 
     protocol = ClientProtocol
@@ -178,63 +173,53 @@ class NodeServerFactory(ServerFactory):
         except:
             traceback.print_exc()
             return None # command failed
-        
-
 
 # initialization
 class Overlay():
     is_coordinator = False
     coordinator = None
     members = []
-    
+
     def init(self, tcp, udp):
         service = OverlayService(self)
         factory = NodeServerFactory(service)
         listen_tcp = reactor.listenTCP(tcp, factory)
         log.msg("init", 'Listening on %s.' % (listen_tcp.getHost()))
         print("node init, listening on "+str(listen_tcp.getHost()))
-        
         self.join()
-    
+
     def join(self):
         print "start join"
         def send(_, node):
-            class ReturnValue():
-                def __init__(self):
-                    self.success = False
-                def callback(self):
-                    self.success = True
-                    
-            result = ReturnValue()
-        
             print "tcp before"
-            factory = NodeClientFactory(OverlayService(self), {"command" : "join"})
+            factory = NodeClientFactory(OverlayService(self), {"command" : \
+                    "join"})
             reactor.connectTCP(node["host"], node["tcp_port"], factory)
             print "tcp finished"
-            #factory.deferred.addCallback(result.callback)
-            #if not result.success:
-            #    print "raise exception"
-            #    raise
             factory.deferred.addCallback(lambda _: node)
+            def sendcallback(_):
+                return node
+            def senderrback(_):
+                raise Exception()
+            factory.deferred.addCallbacks(sendcallback,senderrback)
             return factory.deferred
         def success(node):
             print "success " + str(node)
             coordinator = node
         def error(_):
             log.err("ERROR")
-            is_coordinator = True
+            self.is_coordinator = True
             print "I am coordinator"
         # search for running loadbalancers and join the overlay network
         nodes = self.read_config()
         initialized = False
         d = Deferred()
-        print nodes
         for node in nodes:
             print "add node" + str(node)
             d.addErrback(send, node)
         d.addCallbacks(success, error)
-        
-        d.errback(0)           
+
+        d.errback(0)
 
     def read_config(self):
         # read loadbalancer ip's
