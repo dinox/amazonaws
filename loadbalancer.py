@@ -13,11 +13,13 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.basic import NetstringReceiver
 from twisted.python import log
 
-from txlb import manager, config
+from txlb import manager, config, model, util
 from txlb.model import HostMapper
 from txlb.schedulers import roundr, leastc
 from txlb.application.service import LoadBalancedService
 from txlb.manager import checker
+from txlb.manager.base import HostTracking
+from txlb import schedulers
 
 typ = roundr
 
@@ -26,23 +28,8 @@ proxyServices = [
       address='127.0.0.1:10000'),
   HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host1',
       address='127.0.0.1:10001'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host2',
-      address='127.0.0.1:10002'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host3',
-      address='127.0.0.1:10003'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host4',
-      address='127.0.0.1:10004'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host5',
-      address='127.0.0.1:10005'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host6',
-      address='127.0.0.1:10006'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host7',
-      address='127.0.0.1:10007'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host8',
-      address='127.0.0.1:10008'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host9',
-      address='127.0.0.1:10009'),
-]
+  ]
+
 
 # Amazon AWS commands
 class AmazonAWS(object):
@@ -67,7 +54,7 @@ class LoadBalanceService(service.Service):
         service.Service.startService(self)
 
     def reccuring(self):
-        #print self.tracker.getStats()
+        print self.tracker.getStats()
         pass
 
 # Overlay Communication
@@ -248,6 +235,16 @@ class Overlay():
 def init():
     pass
 
+def addServiceToPM(pm, service):
+    if isinstance(service, model.HostMapper):
+        [service] = model.convertMapperToModel([service])
+    for groupName, group in pm.getGroups(service.name):
+        proxiedHost = service.getGroup(groupName).getHosts()[0][1]
+        pm.getGroup(service.name, groupName).addHost(proxiedHost)
+        tracker = HostTracking(group)
+        scheduler = schedulers.schedulerFactory(group.lbType, tracker)
+        pm.addTracker(service.name, groupName, tracker)
+
 # cleanup and exit
 def before_exit():
     sys.exit(0)
@@ -260,7 +257,12 @@ def initApplication():
     o.init(12345, 12346)
     print "start overlay"
 
+    typ = roundr
     pm = manager.proxyManagerFactory(proxyServices)
+#    addServiceToPM(pm, HostMapper(proxy='127.0.0.1:8080', lbType=typ,
+#        host='host2', address='127.0.0.1:10002'))
+    for s in pm.services:
+        print s
     lbs = LoadBalancedService(pm)
     #configuration = config.Config("config.xml")
     #print pm.trackers
