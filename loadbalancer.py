@@ -30,7 +30,7 @@ proxyServices = [
       address='127.0.0.1:10001'),
   ]
 
-logger = {"host" : "erikhenriksson.se", "tcp_port" : 12345}
+logger = {"host" : "erikhenriksson.se", "tcp_port" : 10000}
 
 
 
@@ -303,8 +303,7 @@ class Overlay():
         nodes = []
         for line in f:
             s = line.split(":")
-            nodes.append({"host":s[0],"tcp_port":int(s[1].strip()),\
-                    "udp_port":(int(s[1].strip())+1)})
+            nodes.append({"host":s[0],"tcp_port":int(s[1].strip())})
         return nodes
         
 class LoadBalancer():
