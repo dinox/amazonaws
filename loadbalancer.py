@@ -23,12 +23,6 @@ from txlb import schedulers
 
 typ = roundr
 
-proxyServices = [
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host0',
-      address='127.0.0.1:10000'),
-  HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host1',
-      address='127.0.0.1:10001'),
-  ]
 
 logger = {"host" : "erikhenriksson.se", "tcp_port" : 10000}
 
@@ -166,7 +160,7 @@ class LogClientFactory(ClientFactory):
     def __init__(self, request):
         self.request = request
         self.deferred = Deferred()
- 
+
     def clientConnectionFailed(self, connector, reason):
         if self.deferred is not None:
             d, self.deferred = self.deferred, None
@@ -379,9 +373,25 @@ def before_exit():
 def initApplication():
     global overlay
     application = service.Application('Demo LB Service')
+    proxyServices = [
+      HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host0',
+          address='127.0.0.1:10000'),
+      HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host1',
+          address='127.0.0.1:10001'),
+      ]
 
     overlay = Overlay()
     overlay.init(12345, 12346)
+    if overlay.is_coordinator:
+        overlay.aws.start_worker()
+        overlay.aws.start_worker()
+        proxyServices = []
+        id = 0
+        for w in overlay.aws.workers:
+            proxyServices.append(HostMapper(proxy='127.0.0.1:8080', lbType=typ,
+                host='host' + str(id), address=str(w.private_ip_address) + ':10000'))
+            id += 1
+
     print "start overlay"
     send_log("Notice", "Overlay LB listening on tcp %s:%s" % \
             (overlay.my_node["host"], overlay.my_node["tcp_port"]))
