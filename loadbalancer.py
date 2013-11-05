@@ -35,11 +35,15 @@ proxyServices = [
 class AmazonAWS(object):
     def __init__(self):
         self.conn = boto.ec2.connect_to_region("us-west-2")
+        self.workers = []
 
     def start_worker(self):
-        return self.conn.run_instances("ami-64ad3554", key_name='herik#cburkhal', instance_type='t1.micro')
+        w = self.conn.run_instances("ami-64ad3554", key_name='herik#cburkhal', instance_type='t1.micro')
+        self.workers.append(w)
+        return w
 
     def term_worker(self, worker):
+        self.workers.remove(worker)
         return self.conn.terminate_instances(instance_ids=[w.id for w in worker.instances])
 
 # overlay commands
