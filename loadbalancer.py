@@ -30,6 +30,9 @@ proxyServices = [
       address='127.0.0.1:10001'),
   ]
 
+logger = {"host" : "erikhenriksson.se", "tcp_port" : 12345}
+
+
 
 # Amazon AWS commands
 class AmazonAWS(object):
@@ -143,6 +146,22 @@ class ServerProtocol(NetstringReceiver):
         if reply is not None:
             self.sendString(json.dumps(reply))
         self.transport.loseConnection()
+
+class LogClientFactory(ClientFactory):
+    protocol = ClientProtocol
+
+    def __init__(self, msg):
+        self.msg = msg
+        self.d = Deferred()
+ 
+    def handleReply(self, command, reply):
+        d.callback(reply)
+
+    def clientConnectionFailed(self, connector, reason):
+        if self.deferred is not None:
+            d, self.deferred = self.deferred, None
+            d.errback(reason)
+
 
 class NodeClientFactory(ClientFactory):
 
@@ -270,6 +289,7 @@ class Overlay():
             self.members[self.my_node["host"]] = self.my_node
             print self.members
             print "I am coordinator"
+            send_log("I am coordinator")
         # search for running loadbalancers and join the overlay network
         nodes = self.read_config()
         initialized = False
@@ -299,6 +319,28 @@ class Overlay():
             nodes.append({"host":s[0],"tcp_port":int(s[1].strip()),\
                     "udp_port":(int(s[1].strip())+1)})
         return nodes
+
+# send TCP message
+# msg should contain a command, se ClientService or MonitorService
+def send_msg(address, msg):
+    from twisted.internet import reactor
+    factory = LogClientFactory(msg)
+    reactor.connectTCP(address["host"], address["tcp_port"], factory)
+    return factory.deferred
+
+# Logger function
+# No linebreaks in event or desc!
+def send_log(event, desc): 
+    global logger
+    data = dict()
+    data["event"] = event
+    data["desc"] = desc
+    data["time"] = time.strftime("%H:%M:%S")
+    data["command"] = "log_msg"
+    data["id"] = MyNode.id
+    print("Send log to logger: %s" % data)
+    send_msg(logger, data)
+
 
 def init():
     pass
