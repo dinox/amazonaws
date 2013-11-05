@@ -303,7 +303,8 @@ class Overlay():
         nodes = []
         for line in f:
             s = line.split(":")
-            nodes.append({"host":s[0],"tcp_port":int(s[1].strip())})
+            nodes.append({"host":s[0],"tcp_port":int(s[1].strip()),\
+                    "udp_port":(int(s[1].strip())+1)})
         return nodes
         
 class LoadBalancer():
