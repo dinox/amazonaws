@@ -177,24 +177,67 @@ class NodeServerFactory(ServerFactory):
         except:
             traceback.print_exc()
             return None # command failed
+            
+# UDP serversocket, answers to ping requests
 
+class UDPServer(DatagramProtocol):
+    def datagramReceived(self, data, (host, port)):
+        self.transport.write(data, (host, port))
+
+class UDPClient(DatagramProtocol):
+    host = ''
+    port = 0
+    pings = dict()
+
+    def __init__(self, node, pings):
+        self.host = node["host"]
+        self.port = node["udp_port"]
+        self.pings = pings
+
+    def startProtocol(self):
+        self.transport.connect(self.host, self.port)
+        self.sendDatagram()
+
+    def datagramReceived(self, datagram, host):
+        global MyNode
+        s = datagram.split(":")
+        t = gettime() - float(s[1])
+        self.pings[s[0]] = t
+        log.msg("Ping to "+s[0]+" in "+str(t)+"ms")
+
+    def sendDatagram(self):
+        msg = str(self.host)+":"+str(gettime())
+        self.transport.write(msg)
+
+# time function
+def gettime():
+    return int(round(time.time() * 10000))
+    
 # initialization
 class Overlay():
     is_coordinator = False
     coordinator = None
     members = dict()
+    pings = dict()
     my_node = ""
     lb = None
 
     def init(self, tcp, udp):
+        #init variables
         self.lb = LoadBalancer()
-        service = OverlayService(self)
+        service = OverlayService(self)        
+        # init tcp server
         factory = NodeServerFactory(service)
         listen_tcp = reactor.listenTCP(tcp, factory)
-        log.msg("init", 'Listening on %s.' % (listen_tcp.getHost()))
+        log.msg('Listening on %s.' % (listen_tcp.getHost()))
         print("node init, listening on "+str(listen_tcp.getHost()))
+        # initialize UDP socket
+        listen_udp = reactor.listenUDP(udp, UDPServer())
+        log.msg('Listening on %s.' % (listen_udp.getHost()))
+        print("node init, listening on "+str(listen_udp.getHost()))
+        # set my_node
         self.my_node = {"host":listen_tcp.getHost().host,"tcp_port":\
-            str(listen_tcp.getHost().port)}
+            str(listen_tcp.getHost().port),"udp_port":str(listen_udp.getHost().port)}
         self.join()
 
     def join(self):
