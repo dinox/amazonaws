@@ -71,35 +71,35 @@ class OverlayService(object):
         pass
 
     def JoinAccepted(self, reply):
-        print reply
         self.overlay.members = reply["members"]
         self.overlay.my_node["id"] = reply["id"]
-        print "join network with id " + str(reply["id"])
+        send_log("JOIN","Joined coordinator")
         return None
 
     def Join(self, reply):
         if self.overlay.is_coordinator:
             reply["node"]["id"] = self.overlay.nextid
             self.overlay.members[reply["node"]["host"]] = reply["node"]
-            print self.overlay.members
             msg = {"command":"join_accept","members":self.overlay.members\
                     ,"id":self.overlay.nextid}
+            send_log("JOIN","Node " + str(self.overlay.nextid) + " joined.")
+            send_log("MEMBERS",str(self.overlay.members))
             self.overlay.nextid = self.overlay.nextid + 1
             return msg
         return {"command":"fail"}
 
     def OverlayMembers(self, reply):
-        print "OverlayMembers"
+        send_log("Debug", "OverlayMembers msg received")
         self.overlay.members = reply["members"]
         return {"command":"ok"}
 
     def LbWorkers(self, reply):
-        print "LbWorkers"
+        send_log("Debug", "LbWorkers msg received")
         self.aws.workers = reply["workers"]
         return {"command":"ok"}
 
     def Error(self, reply):
-        print "receive error"
+        send_log("Warning", "Error msg received")
         return "error"
 
     commands = {"ok" : OK,
@@ -114,16 +114,14 @@ class ClientProtocol(NetstringReceiver):
         self.sendRequest(self.factory.request)
 
     def sendRequest(self, request):
-        print request
         self.sendString(json.dumps(request))
 
     def stringReceived(self, reply):
-        print reply
         self.transport.loseConnection()
         reply = json.loads(reply)
         command = reply["command"]
         if command not in self.factory.service.commands:
-            print "Command <%s> does not exist!" % command
+            send_log("Error", "Command <%s> does not exist!" % command)
             self.transport.loseConnection()
             return self.factory.deferred.errback(0)
         self.factory.handleReply(command, reply)
@@ -140,7 +138,6 @@ class LogClientProtocol(NetstringReceiver):
 
 class ServerProtocol(NetstringReceiver):
     def stringReceived(self, request):
-        print request
         command = json.loads(request)["command"]
         data = json.loads(request)
         if command not in self.factory.service.commands:
@@ -262,27 +259,26 @@ class Overlay():
         service = OverlayService(self)
         factory = NodeServerFactory(service)
         listen_tcp = reactor.listenTCP(tcp, factory, interface=host)
-        log.msg('Listening on %s.' % (listen_tcp.getHost()))
-        print("node init, listening on "+str(listen_tcp.getHost()))
         # initialize UDP socket
         listen_udp = reactor.listenUDP(udp, UDPServer(), interface=host)
         log.msg('Listening on %s.' % (listen_udp.getHost()))
-        print("node init, listening on "+str(listen_udp.getHost()))
         # set my_node
         self.my_node = {"host":listen_tcp.getHost().host,"tcp_port":\
             str(listen_tcp.getHost().port),"udp_port":\
             str(listen_udp.getHost().port),"id":-1}
+        # log
+        send_log("INIT", "node init, listening on "+str(listen_tcp.getHost()))
+        send_log("INIT","node init, listening on "+str(listen_udp.getHost()))
+        # try to join the overlay
         self.join()
+        # register heartbeat
         LoopingCall(self.heartbeat).start(5)
 
     def join(self):
-        print "start join"
         def send(_, node):
-            print "tcp before"
             factory = NodeClientFactory(OverlayService(self), {"command" : \
                     "join","node":self.my_node})
             reactor.connectTCP(node["host"], node["tcp_port"], factory)
-            print "tcp finished"
             factory.deferred.addCallback(lambda _: node)
             def sendcallback(_):
                 return node
@@ -291,22 +287,18 @@ class Overlay():
             factory.deferred.addCallbacks(sendcallback,senderrback)
             return factory.deferred
         def success(node):
-            print "join overlay, coordinator=" + str(node)
             coordinator = node
         def error(_):
             self.is_coordinator = True
             self.my_node["id"] = 0
             self.nextid = 1
             self.members[self.my_node["host"]] = self.my_node
-            print self.members
-            print "I am coordinator"
             send_log("Notice", "I am coordinator")
         # search for running loadbalancers and join the overlay network
         nodes = self.read_config()
         initialized = False
         d = Deferred()
         for node in nodes:
-            print "add node" + str(node)
             d.addErrback(send, node)
         d.addCallbacks(success, error)
         d.errback(0)
@@ -315,14 +307,12 @@ class Overlay():
         try:
             if self.is_coordinator:
                 for host,node in self.members.items():
-                    print "for node " + str(node)
                     if not node is self.my_node:
-                        print "heartbeat to node " + str(node)
                         factory = NodeClientFactory(OverlayService(self), {"command" : \
                             "join","workers":self.aws.workers})
                         reactor.connectTCP(node["host"], node["tcp_port"], factory)
         except Exception, e:
-            print e
+            pass
 
     def read_config(self):
         # read loadbalancer ip's
@@ -351,7 +341,7 @@ def send_log(event, desc):
     data["time"] = time.strftime("%H:%M:%S")
     data["command"] = "log"
     data["id"] = overlay.my_node["id"]
-    print("Send log to logger: %s" % data)
+    print("%s LOG: %s: %s" % (data["time"],event,desc))
     send_msg(logger, data)
 
 
@@ -387,10 +377,6 @@ def initApplication():
             proxyServices.append(HostMapper(proxy='127.0.0.1:8080', lbType=typ,
                 host='host' + str(id), address=str(w.private_ip_address) + ':10000'))
             id += 1
-
-    print "start overlay"
-    send_log("Notice", "Overlay LB listening on tcp %s:%s" % \
-            (overlay.my_node["host"], overlay.my_node["tcp_port"]))
 
     pm = manager.proxyManagerFactory(proxyServices)
     tr = pm.getTracker("proxy1", "group1")
