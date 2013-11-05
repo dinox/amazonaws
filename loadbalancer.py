@@ -358,15 +358,10 @@ def send_log(event, desc):
 def init():
     pass
 
-def addServiceToPM(pm, service):
-    if isinstance(service, model.HostMapper):
-        [service] = model.convertMapperToModel([service])
-    for groupName, group in pm.getGroups(service.name):
-        proxiedHost = service.getGroup(groupName).getHosts()[0][1]
-        pm.getGroup(service.name, groupName).addHost(proxiedHost)
-        tracker = HostTracking(group)
-        scheduler = schedulers.schedulerFactory(group.lbType, tracker)
-        pm.addTracker(service.name, groupName, tracker)
+def addHostToLB(pm, host, name):
+    tracker = pm.getTracker("proxy1", "group1") # Default values
+    tracker.newHost(host, name)
+
 
 # cleanup and exit
 def before_exit():
@@ -376,12 +371,10 @@ def before_exit():
 def initApplication():
     global overlay
     application = service.Application('Demo LB Service')
-    proxyServices = [
-      HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host0',
-          address='127.0.0.1:10000'),
-      HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host1',
-          address='127.0.0.1:10001'),
-      ]
+    # This is because you have to add a first host. It will not be used for
+    # anything.
+    proxyServices = [HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host0',
+        address='127.0.0.1:10000'),]
 
     overlay = Overlay()
     overlay.init(12345, 12346)
@@ -400,8 +393,9 @@ def initApplication():
             (overlay.my_node["host"], overlay.my_node["tcp_port"]))
 
     pm = manager.proxyManagerFactory(proxyServices)
-#    addServiceToPM(pm, HostMapper(proxy='127.0.0.1:8080', lbType=typ,
-#        host='host2', address='127.0.0.1:10002'))
+    tr = pm.getTracker("proxy1", "group1")
+    tr.newHost(("127.0.0.1", 10001), "host1") # This is how we add new hosts
+    tr.newHost(("127.0.0.1", 10002), "host2")
     for s in pm.services:
         print s
     lbs = LoadBalancedService(pm)
