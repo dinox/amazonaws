@@ -80,10 +80,9 @@ class OverlayService(object):
         if self.overlay.is_coordinator:
             reply["node"]["id"] = self.overlay.nextid
             self.overlay.members[reply["node"]["host"]] = reply["node"]
-            print self.overlay.members
             msg = {"command":"join_accept","members":self.overlay.members\
                     ,"id":self.overlay.nextid}
-            send_log("JOIN","Node " + self.overlay.nextid + " joined.")
+            send_log("JOIN","Node " + str(self.overlay.nextid) + " joined.")
             send_log("MEMBERS",str(self.overlay.members))
             self.overlay.nextid = self.overlay.nextid + 1
             return msg
@@ -139,7 +138,6 @@ class LogClientProtocol(NetstringReceiver):
 
 class ServerProtocol(NetstringReceiver):
     def stringReceived(self, request):
-        print request
         command = json.loads(request)["command"]
         data = json.loads(request)
         if command not in self.factory.service.commands:
@@ -277,7 +275,6 @@ class Overlay():
         LoopingCall(self.heartbeat).start(5)
 
     def join(self):
-        print "start join"
         def send(_, node):
             factory = NodeClientFactory(OverlayService(self), {"command" : \
                     "join","node":self.my_node})
@@ -302,7 +299,6 @@ class Overlay():
         initialized = False
         d = Deferred()
         for node in nodes:
-            print "add node" + str(node)
             d.addErrback(send, node)
         d.addCallbacks(success, error)
         d.errback(0)
@@ -344,10 +340,8 @@ def send_log(event, desc):
     data["desc"] = desc
     data["time"] = time.strftime("%H:%M:%S")
     data["command"] = "log"
-    print overlay.my_node
-    print overlay.my_node["id"]
     data["id"] = overlay.my_node["id"]
-    print("Send log to logger: %s" % data)
+    print("%s LOG: %s: %s" % (data["time"],event,desc))
     send_msg(logger, data)
 
 
@@ -390,9 +384,6 @@ def initApplication():
             proxyServices.append(HostMapper(proxy='127.0.0.1:8080', lbType=typ,
                 host='host' + str(id), address=str(w.private_ip_address) + ':10000'))
             id += 1
-
-    send_log("Notice", "Overlay LB listening on tcp %s:%s" % \
-            (overlay.my_node["host"], overlay.my_node["tcp_port"]))
 
     pm = manager.proxyManagerFactory(proxyServices)
 #    addServiceToPM(pm, HostMapper(proxy='127.0.0.1:8080', lbType=typ,
