@@ -55,8 +55,15 @@ class LoadBalanceService(service.Service):
         service.Service.startService(self)
 
     def reccuring(self):
-        print self.tracker.getStats()
-        pass
+        stats = self.tracker.getStats()
+        hosts = [x for x, _ in sorted(stats["totals"].items())]
+        openconns = [x for _, x in sorted(stats["openconns"].items())]
+        totals = [x for _, x in sorted(stats["totals"].items())]
+        bad = [x for x, _ in sorted(stats["bad"].items())]
+        print "Hosts: " + str(hosts)
+        print "Open conns: " + str(openconns)
+        print "Totals: " + str(totals)
+        print "Bad: " + str(bad)
 
 # Overlay Communication
 class OverlayService(object):
