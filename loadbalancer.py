@@ -384,7 +384,7 @@ def initApplication():
     overlay.init(12345, 12346)
     print "start overlay"
     send_log("Notice", "Overlay LB listening on tcp %s:%s" % \
-            (o.my_node["host"], o.my_node["tcp_port"]))
+            (overlay.my_node["host"], overlay.my_node["tcp_port"]))
 
     pm = manager.proxyManagerFactory(proxyServices)
 #    addServiceToPM(pm, HostMapper(proxy='127.0.0.1:8080', lbType=typ,
