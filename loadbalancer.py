@@ -92,12 +92,12 @@ class OverlayService(object):
             self.overlay.nextid = self.overlay.nextid + 1
             return msg
         return {"command":"fail"}
-        
+
     def OverlayMembers(self, reply):
         print "OverlayMembers"
         self.overlay.members = reply["members"]
         return {"command":"ok"}
-        
+
     def LbWorkers(self, reply):
         print "LbWorkers"
         self.aws.workers = reply["workers"]
@@ -133,6 +133,16 @@ class ClientProtocol(NetstringReceiver):
             return self.factory.deferred.errback(0)
         self.factory.handleReply(command, reply)
 
+class LogClientProtocol(NetstringReceiver):
+    def connectionMade(self):
+        self.sendRequest(self.factory.request)
+
+    def sendRequest(self, request):
+        self.sendString(json.dumps(request))
+
+    def stringReceived(self, reply):
+        pass
+
 class ServerProtocol(NetstringReceiver):
     def stringReceived(self, request):
         print request
@@ -151,15 +161,12 @@ class ServerProtocol(NetstringReceiver):
         self.transport.loseConnection()
 
 class LogClientFactory(ClientFactory):
-    protocol = ClientProtocol
+    protocol = LogClientProtocol
 
-    def __init__(self, msg):
-        self.msg = msg
-        self.d = Deferred()
+    def __init__(self, request):
+        self.request = request
+        self.deferred = Deferred()
  
-    def handleReply(self, command, reply):
-        d.callback(reply)
-
     def clientConnectionFailed(self, connector, reason):
         if self.deferred is not None:
             d, self.deferred = self.deferred, None
@@ -205,7 +212,7 @@ class NodeServerFactory(ServerFactory):
         except:
             traceback.print_exc()
             return None # command failed
-            
+
 # UDP serversocket, answers to ping requests
 
 class UDPServer(DatagramProtocol):
@@ -240,7 +247,7 @@ class UDPClient(DatagramProtocol):
 # time function
 def gettime():
     return int(round(time.time() * 10000))
-    
+
 # initialization
 class Overlay():
     is_coordinator = False
@@ -345,7 +352,7 @@ def send_log(event, desc):
     data["event"] = event
     data["desc"] = desc
     data["time"] = time.strftime("%H:%M:%S")
-    data["command"] = "log_msg"
+    data["command"] = "log"
     data["id"] = overlay.my_node["id"]
     print("Send log to logger: %s" % data)
     send_msg(logger, data)
@@ -376,8 +383,9 @@ def initApplication():
     overlay = Overlay()
     overlay.init(12345, 12346)
     print "start overlay"
+    send_log("Notice", "Overlay LB listening on tcp %s:%s" % \
+            (o.my_node["host"], o.my_node["tcp_port"]))
 
-    typ = roundr
     pm = manager.proxyManagerFactory(proxyServices)
 #    addServiceToPM(pm, HostMapper(proxy='127.0.0.1:8080', lbType=typ,
 #        host='host2', address='127.0.0.1:10002'))
