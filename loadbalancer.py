@@ -77,17 +77,20 @@ class OverlayService(object):
         pass
 
     def JoinAccepted(self, reply):
-        print "JoinReceived"
         print reply
-        self.overlay.members = reply["members"]        
-        print self.overlay.members
+        self.overlay.members = reply["members"]
+        self.overlay.my_node["id"] = reply["id"]
+        print "join network with id " + str(reply["id"])
         return None
 
     def Join(self, reply):
         if self.overlay.is_coordinator:
             self.overlay.members[reply["node"]["host"]] = reply["node"]
             print self.overlay.members
-            return {"command":"join_accept","members":self.overlay.members}
+            msg = {"command":"join_accept","members":self.overlay.members\
+                    ,"id":self.overlay.nextid}
+            self.overlay.nextid = self.overlay.nextid + 1
+            return msg
         return {"command":"fail"}
         
     def OverlayMembers(self, reply):
@@ -246,6 +249,7 @@ class Overlay():
     pings = dict()
     my_node = ""
     aws = None
+    nextid = 0
 
     def init(self, tcp, udp):
         #init variables
@@ -262,7 +266,8 @@ class Overlay():
         print("node init, listening on "+str(listen_udp.getHost()))
         # set my_node
         self.my_node = {"host":listen_tcp.getHost().host,"tcp_port":\
-            str(listen_tcp.getHost().port),"udp_port":str(listen_udp.getHost().port)}
+            str(listen_tcp.getHost().port),"udp_port":\
+            str(listen_udp.getHost().port),"id":-1}
         self.join()
         LoopingCall(self.heartbeat).start(5)
 
@@ -286,6 +291,8 @@ class Overlay():
             coordinator = node
         def error(_):
             self.is_coordinator = True
+            self.my_node["id"] = 0
+            self.nextid = 1
             self.members[self.my_node["host"]] = self.my_node
             print self.members
             print "I am coordinator"
@@ -333,13 +340,13 @@ def send_msg(address, msg):
 # Logger function
 # No linebreaks in event or desc!
 def send_log(event, desc): 
-    global logger
+    global logger, overlay
     data = dict()
     data["event"] = event
     data["desc"] = desc
     data["time"] = time.strftime("%H:%M:%S")
     data["command"] = "log_msg"
-    data["id"] = MyNode.id
+    data["id"] = overlay.my_node["id"]
     print("Send log to logger: %s" % data)
     send_msg(logger, data)
 
@@ -363,10 +370,11 @@ def before_exit():
 
 # main
 def initApplication():
+    global overlay
     application = service.Application('Demo LB Service')
 
-    o = Overlay()
-    o.init(12345, 12346)
+    overlay = Overlay()
+    overlay.init(12345, 12346)
     print "start overlay"
 
     typ = roundr
