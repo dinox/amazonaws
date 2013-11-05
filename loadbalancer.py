@@ -1,5 +1,5 @@
 from twisted.application import service
-import os, sys, time, atexit, json, traceback, boto.ec2
+import os, sys, time, atexit, json, traceback, boto.ec2, socket
 from twisted.internet.task import LoopingCall
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -79,6 +79,7 @@ class OverlayService(object):
 
     def Join(self, reply):
         if self.overlay.is_coordinator:
+            reply["node"]["id"] = self.overlay.nextid
             self.overlay.members[reply["node"]["host"]] = reply["node"]
             print self.overlay.members
             msg = {"command":"join_accept","members":self.overlay.members\
@@ -255,14 +256,16 @@ class Overlay():
     def init(self, tcp, udp):
         #init variables
         self.aws = AmazonAWS()
+
+        host = socket.gethostbyname(socket.gethostname())
         # init tcp server
         service = OverlayService(self)
         factory = NodeServerFactory(service)
-        listen_tcp = reactor.listenTCP(tcp, factory)
+        listen_tcp = reactor.listenTCP(tcp, factory, interface=host)
         log.msg('Listening on %s.' % (listen_tcp.getHost()))
         print("node init, listening on "+str(listen_tcp.getHost()))
         # initialize UDP socket
-        listen_udp = reactor.listenUDP(udp, UDPServer())
+        listen_udp = reactor.listenUDP(udp, UDPServer(), interface=host)
         log.msg('Listening on %s.' % (listen_udp.getHost()))
         print("node init, listening on "+str(listen_udp.getHost()))
         # set my_node
