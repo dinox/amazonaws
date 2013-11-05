@@ -73,21 +73,38 @@ class LoadBalanceService(service.Service):
 # Overlay Communication
 class OverlayService(object):
     overlay = None
+    lb = None
 
     def __init__(self, o):
         self.overlay = o
+        self.lb = o.lb
 
     def OK(self, reply):
         pass
 
     def JoinAccepted(self, reply):
         print "JoinReceived"
+        print reply
+        self.overlay.members = reply["members"]        
+        print self.overlay.members
         return None
 
     def Join(self, reply):
         if self.overlay.is_coordinator:
-            return {"command":"join_accept"}
+            self.overlay.members[reply["node"]["host"]] = reply["node"]
+            print self.overlay.members
+            return {"command":"join_accept","members":self.overlay.members}
         return {"command":"fail"}
+        
+    def OverlayMembers(self, reply):
+        print "OverlayMembers"
+        self.overlay.members = reply["members"]
+        return {"command":"ok"}
+        
+    def LbWorkers(self, reply):
+        print "LbWorkers"
+        self.lb.workers = reply["workers"]
+        return {"command":"ok"}
 
     def Error(self, reply):
         print "receive error"
@@ -149,8 +166,8 @@ class NodeClientFactory(ClientFactory):
         cmd_handler = self.service.commands[command]
         if cmd_handler is None:
             return None
-        self.deferred.addCallback(handler)
-        self.deferred.callback(reply)
+        self.service.commands[command](self.service, reply)
+        self.deferred.callback(0)
 
     def clientConnectionFailed(self, connector, reason):
         if self.deferred is not None:
@@ -178,14 +195,19 @@ class NodeServerFactory(ServerFactory):
 class Overlay():
     is_coordinator = False
     coordinator = None
-    members = []
+    members = dict()
+    my_node = ""
+    lb = None
 
     def init(self, tcp, udp):
+        self.lb = LoadBalancer()
         service = OverlayService(self)
         factory = NodeServerFactory(service)
         listen_tcp = reactor.listenTCP(tcp, factory)
         log.msg("init", 'Listening on %s.' % (listen_tcp.getHost()))
         print("node init, listening on "+str(listen_tcp.getHost()))
+        self.my_node = {"host":listen_tcp.getHost().host,"tcp_port":\
+            str(listen_tcp.getHost().port)}
         self.join()
 
     def join(self):
@@ -193,7 +215,7 @@ class Overlay():
         def send(_, node):
             print "tcp before"
             factory = NodeClientFactory(OverlayService(self), {"command" : \
-                    "join"})
+                    "join","node":self.my_node})
             reactor.connectTCP(node["host"], node["tcp_port"], factory)
             print "tcp finished"
             factory.deferred.addCallback(lambda _: node)
@@ -204,11 +226,12 @@ class Overlay():
             factory.deferred.addCallbacks(sendcallback,senderrback)
             return factory.deferred
         def success(node):
-            print "success " + str(node)
+            print "join overlay, coordinator=" + str(node)
             coordinator = node
         def error(_):
-            log.err("ERROR")
             self.is_coordinator = True
+            self.members[self.my_node["host"]] = self.my_node
+            print self.members
             print "I am coordinator"
         # search for running loadbalancers and join the overlay network
         nodes = self.read_config()
@@ -218,7 +241,6 @@ class Overlay():
             print "add node" + str(node)
             d.addErrback(send, node)
         d.addCallbacks(success, error)
-
         d.errback(0)
 
     def read_config(self):
@@ -229,6 +251,9 @@ class Overlay():
             s = line.split(":")
             nodes.append({"host":s[0],"tcp_port":int(s[1].strip())})
         return nodes
+        
+class LoadBalancer():
+    workers = dict()
 
 def init():
     pass
