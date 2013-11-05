@@ -286,7 +286,7 @@ class Overlay():
             self.members[self.my_node["host"]] = self.my_node
             print self.members
             print "I am coordinator"
-            send_log("I am coordinator")
+            send_log("Notice", "I am coordinator")
         # search for running loadbalancers and join the overlay network
         nodes = self.read_config()
         initialized = False
