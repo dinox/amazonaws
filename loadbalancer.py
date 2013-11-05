@@ -1,5 +1,5 @@
 from twisted.application import service
-import os, sys, time, atexit, json, traceback
+import os, sys, time, atexit, json, traceback, boto.ec2
 from twisted.internet.task import LoopingCall
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -67,11 +67,11 @@ class LoadBalanceService(service.Service):
 # Overlay Communication
 class OverlayService(object):
     overlay = None
-    lb = None
+    aws = None
 
     def __init__(self, o):
         self.overlay = o
-        self.lb = o.lb
+        self.aws = o.aws
 
     def OK(self, reply):
         pass
@@ -97,7 +97,7 @@ class OverlayService(object):
         
     def LbWorkers(self, reply):
         print "LbWorkers"
-        self.lb.workers = reply["workers"]
+        self.aws.workers = reply["workers"]
         return {"command":"ok"}
 
     def Error(self, reply):
@@ -107,6 +107,8 @@ class OverlayService(object):
     commands = {"ok" : OK,
                 "join_accept" : JoinAccepted,
                 "join" : Join,
+                "hb_members" : OverlayMembers,
+                "hb_workers" : LbWorkers,
                 "error" : Error}
 
 class ClientProtocol(NetstringReceiver):
@@ -243,13 +245,13 @@ class Overlay():
     members = dict()
     pings = dict()
     my_node = ""
-    lb = None
+    aws = None
 
     def init(self, tcp, udp):
         #init variables
-        self.lb = LoadBalancer()
-        service = OverlayService(self)        
+        self.aws = AmazonAWS()
         # init tcp server
+        service = OverlayService(self)
         factory = NodeServerFactory(service)
         listen_tcp = reactor.listenTCP(tcp, factory)
         log.msg('Listening on %s.' % (listen_tcp.getHost()))
@@ -262,6 +264,7 @@ class Overlay():
         self.my_node = {"host":listen_tcp.getHost().host,"tcp_port":\
             str(listen_tcp.getHost().port),"udp_port":str(listen_udp.getHost().port)}
         self.join()
+        LoopingCall(self.heartbeat).start(5)
 
     def join(self):
         print "start join"
@@ -297,6 +300,16 @@ class Overlay():
         d.addCallbacks(success, error)
         d.errback(0)
 
+    def heartbeat(self):
+        if self.is_coordinator:
+            for host,node in self.members.items():
+                print "for node " + str(node)
+                if not node is self.my_node:
+                    print "heartbeat to node " + str(node)
+                    factory = NodeClientFactory(OverlayService(self), {"command" : \
+                        "join","workers":self.aws.workers})
+                    reactor.connectTCP(node["host"], node["tcp_port"], factory)
+
     def read_config(self):
         # read loadbalancer ip's
         f = open("load_balancers.txt", "r")
@@ -305,9 +318,6 @@ class Overlay():
             s = line.split(":")
             nodes.append({"host":s[0],"tcp_port":int(s[1].strip())})
         return nodes
-        
-class LoadBalancer():
-    workers = dict()
 
 # send TCP message
 # msg should contain a command, se ClientService or MonitorService
