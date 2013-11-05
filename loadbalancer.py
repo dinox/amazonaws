@@ -301,14 +301,17 @@ class Overlay():
         d.errback(0)
 
     def heartbeat(self):
-        if self.is_coordinator:
-            for host,node in self.members.items():
-                print "for node " + str(node)
-                if not node is self.my_node:
-                    print "heartbeat to node " + str(node)
-                    factory = NodeClientFactory(OverlayService(self), {"command" : \
-                        "join","workers":self.aws.workers})
-                    reactor.connectTCP(node["host"], node["tcp_port"], factory)
+        try:
+            if self.is_coordinator:
+                for host,node in self.members.items():
+                    print "for node " + str(node)
+                    if not node is self.my_node:
+                        print "heartbeat to node " + str(node)
+                        factory = NodeClientFactory(OverlayService(self), {"command" : \
+                            "join","workers":self.aws.workers})
+                        reactor.connectTCP(node["host"], node["tcp_port"], factory)
+        except Exception, e:
+            print e
 
     def read_config(self):
         # read loadbalancer ip's
