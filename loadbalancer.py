@@ -77,24 +77,27 @@ class OverlayService(object):
         pass
 
     def JoinAccepted(self, reply):
-        print "JoinReceived"
         print reply
-        self.overlay.members = reply["members"]        
-        print self.overlay.members
+        self.overlay.members = reply["members"]
+        self.overlay.my_node["id"] = reply["id"]
+        print "join network with id " + str(reply["id"])
         return None
 
     def Join(self, reply):
         if self.overlay.is_coordinator:
             self.overlay.members[reply["node"]["host"]] = reply["node"]
             print self.overlay.members
-            return {"command":"join_accept","members":self.overlay.members}
+            msg = {"command":"join_accept","members":self.overlay.members\
+                    ,"id":self.overlay.nextid}
+            self.overlay.nextid = self.overlay.nextid + 1
+            return msg
         return {"command":"fail"}
-        
+
     def OverlayMembers(self, reply):
         print "OverlayMembers"
         self.overlay.members = reply["members"]
         return {"command":"ok"}
-        
+
     def LbWorkers(self, reply):
         print "LbWorkers"
         self.aws.workers = reply["workers"]
@@ -209,7 +212,7 @@ class NodeServerFactory(ServerFactory):
         except:
             traceback.print_exc()
             return None # command failed
-            
+
 # UDP serversocket, answers to ping requests
 
 class UDPServer(DatagramProtocol):
@@ -244,7 +247,7 @@ class UDPClient(DatagramProtocol):
 # time function
 def gettime():
     return int(round(time.time() * 10000))
-    
+
 # initialization
 class Overlay():
     is_coordinator = False
@@ -253,6 +256,7 @@ class Overlay():
     pings = dict()
     my_node = ""
     aws = None
+    nextid = 0
 
     def init(self, tcp, udp):
         #init variables
@@ -269,7 +273,8 @@ class Overlay():
         print("node init, listening on "+str(listen_udp.getHost()))
         # set my_node
         self.my_node = {"host":listen_tcp.getHost().host,"tcp_port":\
-            str(listen_tcp.getHost().port),"udp_port":str(listen_udp.getHost().port)}
+            str(listen_tcp.getHost().port),"udp_port":\
+            str(listen_udp.getHost().port),"id":-1}
         self.join()
         LoopingCall(self.heartbeat).start(5)
 
@@ -293,6 +298,8 @@ class Overlay():
             coordinator = node
         def error(_):
             self.is_coordinator = True
+            self.my_node["id"] = 0
+            self.nextid = 1
             self.members[self.my_node["host"]] = self.my_node
             print self.members
             print "I am coordinator"
@@ -308,14 +315,17 @@ class Overlay():
         d.errback(0)
 
     def heartbeat(self):
-        if self.is_coordinator:
-            for host,node in self.members.items():
-                print "for node " + str(node)
-                if not node is self.my_node:
-                    print "heartbeat to node " + str(node)
-                    factory = NodeClientFactory(OverlayService(self), {"command" : \
-                        "join","workers":self.aws.workers})
-                    reactor.connectTCP(node["host"], node["tcp_port"], factory)
+        try:
+            if self.is_coordinator:
+                for host,node in self.members.items():
+                    print "for node " + str(node)
+                    if not node is self.my_node:
+                        print "heartbeat to node " + str(node)
+                        factory = NodeClientFactory(OverlayService(self), {"command" : \
+                            "join","workers":self.aws.workers})
+                        reactor.connectTCP(node["host"], node["tcp_port"], factory)
+        except Exception, e:
+            print e
 
     def read_config(self):
         # read loadbalancer ip's
@@ -337,13 +347,13 @@ def send_msg(address, msg):
 # Logger function
 # No linebreaks in event or desc!
 def send_log(event, desc): 
-    global logger
+    global logger, overlay
     data = dict()
     data["event"] = event
     data["desc"] = desc
     data["time"] = time.strftime("%H:%M:%S")
     data["command"] = "log"
-    data["id"] = 0
+    data["id"] = overlay.my_node["id"]
     print("Send log to logger: %s" % data)
     send_msg(logger, data)
 
@@ -367,13 +377,14 @@ def before_exit():
 
 # main
 def initApplication():
+    global overlay
     application = service.Application('Demo LB Service')
 
-    o = Overlay()
-    o.init(12345, 12346)
+    overlay = Overlay()
+    overlay.init(12345, 12346)
     print "start overlay"
     send_log("Notice", "Overlay LB listening on tcp %s:%s" % \
-            (o.my_node["host"], o.my_node["tcp_port"]))
+            (overlay.my_node["host"], overlay.my_node["tcp_port"]))
 
     pm = manager.proxyManagerFactory(proxyServices)
 #    addServiceToPM(pm, HostMapper(proxy='127.0.0.1:8080', lbType=typ,
