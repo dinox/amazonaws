@@ -1,5 +1,5 @@
 from twisted.application import service
-import os, sys, time, atexit, json, traceback, boto.ec2, socket
+import os, sys, time, atexit, json, traceback, boto.ec2, socket, yaml
 from twisted.internet.task import LoopingCall
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -259,15 +259,17 @@ class Overlay():
     coordinator = None
     members = dict()
     pings = dict()
-    my_node = ""
+    my_node = None
     aws = None
     nextid = 0
     d = Deferred()
+    config = None
 
     def init(self, tcp, udp):
+        # load config
+        self.load_config()
         #init variables
         self.aws = AmazonAWS()
-
         host = socket.gethostbyname(socket.gethostname())
         # init tcp server
         service = OverlayService(self)
@@ -311,10 +313,9 @@ class Overlay():
             send_log("Notice", "I am coordinator")
             return e
         # search for running loadbalancers and join the overlay network
-        nodes = self.read_config()
         initialized = False
         d = Deferred()
-        for node in nodes:
+        for node in self.config["nodes"]:
             d.addErrback(send, node)
         d.addCallbacks(success, error)
         d.errback(0)
@@ -331,14 +332,14 @@ class Overlay():
         except Exception, e:
             pass
 
-    def read_config(self):
-        # read loadbalancer ip's
-        f = open("load_balancers.txt", "r")
-        nodes = []
-        for line in f:
-            s = line.split(":")
-            nodes.append({"host":s[0],"tcp_port":int(s[1].strip())})
-        return nodes
+    def load_config(self):
+        global logger
+        # load config, set logger
+        f = open("config.yaml", "r")
+        self.config = yaml.load(f)
+        f.close()
+        logger = self.config["logger"]
+        return self.config
 
 # send TCP message
 # msg should contain a command, se ClientService or MonitorService
@@ -360,10 +361,6 @@ def send_log(event, desc):
     data["id"] = overlay.my_node["id"]
     print("%s LOG: %s: %s" % (data["time"],event,desc))
     send_msg(logger, data)
-
-
-def init():
-    pass
 
 # cleanup and exit
 def before_exit():
