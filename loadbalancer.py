@@ -6,10 +6,12 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(SCRIPT_DIR, 'txlb'))
 
 from twisted.internet import defer, reactor
+from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Factory, Protocol, ClientFactory,\
         ServerFactory, DatagramProtocol
 from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.internet.threads import deferToThread
 from twisted.protocols.basic import NetstringReceiver
 from twisted.python import log
 
@@ -42,6 +44,10 @@ class AmazonAWS(object):
     def term_worker(self, worker):
         self.workers.remove(worker)
         return self.conn.terminate_instances(instance_ids=[w.id for w in worker.instances])
+
+    def term_workers(self):
+        for w in list(self.workers):
+            self.term_worker(w)
 
 # overlay commands
 class LoadBalanceService(service.Service):
@@ -88,7 +94,7 @@ class OverlayService(object):
             reply["node"]["id"] = self.overlay.nextid
             self.overlay.members[reply["node"]["host"]] = reply["node"]
             msg = {"command":"join_accept","members":self.overlay.members\
-                    ,"id":self.overlay.nextid}
+                    ,"id":self.overlay.nextid, "workers" : overlay.aws.workers}
             send_log("JOIN","Node " + str(self.overlay.nextid) + " joined.")
             send_log("MEMBERS",str(self.overlay.members))
             self.overlay.nextid = self.overlay.nextid + 1
@@ -256,6 +262,7 @@ class Overlay():
     my_node = ""
     aws = None
     nextid = 0
+    d = Deferred()
 
     def init(self, tcp, udp):
         #init variables
@@ -277,11 +284,12 @@ class Overlay():
         send_log("INIT", "node init, listening on "+str(listen_tcp.getHost()))
         send_log("INIT","node init, listening on "+str(listen_udp.getHost()))
         # try to join the overlay
-        self.join()
+        self.d.addCallback(self.join)
+        self.d.callback(0)
         # register heartbeat
         LoopingCall(self.heartbeat).start(5)
 
-    def join(self):
+    def join(self, _):
         def send(_, node):
             factory = NodeClientFactory(OverlayService(self), {"command" : \
                     "join","node":self.my_node})
@@ -295,12 +303,13 @@ class Overlay():
             return factory.deferred
         def success(node):
             coordinator = node
-        def error(_):
+        def error(e):
             self.is_coordinator = True
             self.my_node["id"] = 0
             self.nextid = 1
             self.members[self.my_node["host"]] = self.my_node
             send_log("Notice", "I am coordinator")
+            return e
         # search for running loadbalancers and join the overlay network
         nodes = self.read_config()
         initialized = False
@@ -309,6 +318,7 @@ class Overlay():
             d.addErrback(send, node)
         d.addCallbacks(success, error)
         d.errback(0)
+        return d
 
     def heartbeat(self):
         try:
@@ -355,13 +365,10 @@ def send_log(event, desc):
 def init():
     pass
 
-def addHostToLB(pm, host, name):
-    tracker = pm.getTracker("proxy1", "group1") # Default values
-    tracker.newHost(host, name)
-
-
 # cleanup and exit
 def before_exit():
+    global overlay
+    overlay.aws.term_workers()
     sys.exit(0)
 
 # main
@@ -375,20 +382,35 @@ def initApplication():
 
     overlay = Overlay()
     overlay.init(12345, 12346)
-    if overlay.is_coordinator:
-        overlay.aws.start_worker()
-        overlay.aws.start_worker()
-        proxyServices = []
-        id = 0
-        for w in overlay.aws.workers:
-            proxyServices.append(HostMapper(proxy='127.0.0.1:8080', lbType=typ,
-                host='host' + str(id), address=str(w.private_ip_address) + ':10000'))
-            id += 1
-
     pm = manager.proxyManagerFactory(proxyServices)
     tr = pm.getTracker("proxy1", "group1")
-    tr.newHost(("127.0.0.1", 10001), "host1") # This is how we add new hosts
-    tr.newHost(("127.0.0.1", 10002), "host2")
+
+    def start_workers(_):
+        d = Deferred()
+        N = 2
+
+        def _start_worker(_):
+            deferred = deferToThread(overlay.aws.start_worker)
+            def _addHost(w):
+                print "Started new host %s:10000" % str(w.instances[0].private_ip_address)
+                tr.newHost((w.instances[0].private_ip_address, 10000), "host" + str(id))
+                return w
+            deferred.addCallback(_addHost)
+            return deferred
+
+        for id in range(1,N+1):
+            d.addCallback(_start_worker)
+        d.callback(0)
+        return d
+
+    def add_workers(_):
+        for w in overlay.aws.workers:
+            print "Added host " + str(w.instances[0].private_ip_address)
+            tr.newHost((w.instances[0].private_ip_address, 10000), "host" + str(id))
+            id += 1
+
+    overlay.d.addCallbacks(add_workers, start_workers)
+
     for s in pm.services:
         print s
     lbs = LoadBalancedService(pm)
