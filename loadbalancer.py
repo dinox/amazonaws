@@ -374,7 +374,7 @@ def initApplication():
     application = service.Application('Demo LB Service')
     # This is because you have to add a first host. It will not be used for
     # anything.
-    proxyServices = [HostMapper(proxy='127.0.0.1:8080', lbType=typ, host='host0',
+    proxyServices = [HostMapper(proxy='0.0.0.0:8080', lbType=typ, host='host0',
         address='127.0.0.1:10000'),]
 
     overlay = Overlay()
