@@ -8,7 +8,7 @@ Make sure your AWS credentials is in your ~/.boto file.
 Loadbalancer
 Usage: `twistd -noy loadbalancer.py`
 
-startloadbalancer.py:
+startloadbalancer.py
 Usage: `python startloadbalancer.py`
 Will start up 2 loadbalancers and two worker units. They are accessible at
 elastic IP's 
