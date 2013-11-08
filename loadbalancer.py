@@ -14,6 +14,8 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.threads import deferToThread
 from twisted.protocols.basic import NetstringReceiver
 from twisted.python import log
+from twisted.web.client import Agent
+from twisted.web.http_headers import Headers
 
 from txlb import manager, config, model, util
 from txlb.model import HostMapper
@@ -22,6 +24,7 @@ from txlb.application.service import LoadBalancedService
 from txlb.manager import checker
 from txlb.manager.base import HostTracking
 from txlb import schedulers
+from twisted.web import client
 
 typ = roundr
 
@@ -54,8 +57,11 @@ class LoadBalanceService(service.Service):
 
     def __init__(self, tracker):
         self.tracker = tracker
+        self.agent = Agent(reactor)
+        client._HTTP11ClientFactory.noisy = False # Remove log spam
         from twisted.internet.task import LoopingCall
         LoopingCall(self.reccuring).start(3)
+        LoopingCall(self.poll_from_LB).start(1)
 
     def startService(self):
         service.Service.startService(self)
@@ -71,6 +77,13 @@ class LoadBalanceService(service.Service):
         print "Totals: " + str(totals)
         print "Avg: " + str(stats['avg_process_time'])
         print "Bad: " + str(bad)
+
+    # Reccuring polling serice for measuring process time when there is no outer
+    # requests happening
+    def poll_from_LB(self):
+        d = self.agent.request('GET', 'http://0.0.0.0:8080/10000',
+                    Headers({'User-Agent': ['Twisted Web Client']}), None)
+        d.addErrback(lambda _ : 0) # We dont care about errors here
 
 # Overlay Communication
 class OverlayService(object):
@@ -413,6 +426,8 @@ def initApplication():
             id += 1
 
     overlay.d.addCallbacks(add_workers, start_workers)
+
+
 
     for s in pm.services:
         print s
