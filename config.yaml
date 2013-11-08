@@ -11,5 +11,5 @@ nodes:
         udp_port: 12346
 
 logger:
-    host: "erikhenriksson.se"
+    host: "54.201.40.23"
     tcp_port: 10000
