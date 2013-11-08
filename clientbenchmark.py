@@ -1,7 +1,7 @@
 import subprocess, time
 
 repetitions = 3
-number_of_requests = 250
+number_of_requests = 1000
 
 def benchmark(c):
     global repetitions, number_of_requests
@@ -16,10 +16,14 @@ def benchmark(c):
     t = t / float(repetitions)
     t = t / float(number_of_requests)
     print "Benchmark %i:\t%f" % (c,t)
+    f = open("bench.dat","a")
+    f.write("%i\t%f\n" % (c,t))
+    f.close()
 
 def benchmark_ab(c):
     global number_of_requests
-    command = "ab -n %i -c %i -q localhost:8080/3000" % (number_of_requests,c)
+    command = "ab -n %i -c %i -q 54.200.217.6:8080/3000" % (number_of_requests,c)
+    print command
     start = time.time()
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     process.wait()
@@ -29,5 +33,5 @@ def benchmark_ab(c):
         return -1
     return end - start
 
-for c in [1,10,20,50,100,250]:
+for c in [10,20,50,100,200,300,400,500,600,700,800,900,1000]:
     benchmark(c)
