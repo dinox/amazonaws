@@ -359,6 +359,7 @@ class HostTracking(object):
         self.hostnames = {}
         self.badhosts = {}
         self.openconns = {}
+        self.avg_process_time = {}
         # the values in self.available indicate the number of connections that
         # are currently being attempted; a down host is not in available
         self.available = {}
@@ -390,6 +391,7 @@ class HostTracking(object):
         stats['openconns'] = sorter('available')
         stats['totals'] = sorter('totalconns')
         stats['failed'] = sorter('failed')
+        stats['avg_process_time'] = sorter('avg_process_time')
         stats['bad'] = self.badhosts
         return stats
 
@@ -426,6 +428,11 @@ class HostTracking(object):
             t, host = self.openconns[senderFactory]
         except KeyError:
             return
+        if not host in self.avg_process_time:
+            self.avg_process_time[host] = (time.time() - t)
+        else:
+            self.avg_process_time[host] *= 0.9
+            self.avg_process_time[host] += 0.1 * (time.time() - t)
         del self.openconns[senderFactory]
         if self.available.get(host) is not None:
             self.available[host] -= 1

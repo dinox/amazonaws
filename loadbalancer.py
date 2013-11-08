@@ -69,6 +69,7 @@ class LoadBalanceService(service.Service):
         print "Hosts: " + str(hosts)
         print "Open conns: " + str(openconns)
         print "Totals: " + str(totals)
+        print "Avg: " + str(stats['avg_process_time'])
         print "Bad: " + str(bad)
 
 # Overlay Communication
