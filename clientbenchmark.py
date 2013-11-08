@@ -17,7 +17,7 @@ def benchmark(c):
     t = t / float(number_of_requests)
     print "Benchmark %i:\t%f" % (c,t)
     f = open("bench.dat","a")
-    f.write("%i\t%f" % (c,t))
+    f.write("%i\t%f\n" % (c,t))
     f.close()
 
 def benchmark_ab(c):
