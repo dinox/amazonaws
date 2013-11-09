@@ -27,9 +27,6 @@ from txlb import schedulers
 from twisted.web import client
 from txlb.manager.checker import checkBadHosts
 
-typ = roundr
-
-
 logger = {"host" : "erikhenriksson.se", "tcp_port" : 10000}
 
 
@@ -427,7 +424,7 @@ def initApplication():
     application = service.Application('Demo LB Service')
     # This is because you have to add a first host. It will not be used for
     # anything.
-    proxyServices = [HostMapper(proxy='0.0.0.0:8080', lbType=typ, host='host0',
+    proxyServices = [HostMapper(proxy='0.0.0.0:8080', lbType=leastc, host='host0',
         address='127.0.0.1:10000'),]
 
     overlay = Overlay()
