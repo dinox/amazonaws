@@ -15,5 +15,5 @@ logger:
     host: "54.201.40.23"
     tcp_port: 10000
 
-wokers:
+workers:
     2
