@@ -25,6 +25,7 @@ from txlb.manager import checker
 from txlb.manager.base import HostTracking
 from txlb import schedulers
 from twisted.web import client
+from txlb.manager.checker import checkBadHosts
 
 typ = roundr
 
@@ -55,13 +56,15 @@ class AmazonAWS(object):
 # overlay commands
 class LoadBalanceService(service.Service):
 
-    def __init__(self, tracker):
+    def __init__(self, tracker, pm):
         self.tracker = tracker
+        self.pm = pm
         self.agent = Agent(reactor)
         client._HTTP11ClientFactory.noisy = False # Remove log spam
         from twisted.internet.task import LoopingCall
         LoopingCall(self.reccuring).start(3)
         LoopingCall(self.poll_from_LB).start(1)
+        LoopingCall(self.check_bad_workers).start(5)
 
     def startService(self):
         service.Service.startService(self)
@@ -84,6 +87,13 @@ class LoadBalanceService(service.Service):
         d = self.agent.request('GET', 'http://0.0.0.0:8080/10000',
                     Headers({'User-Agent': ['Twisted Web Client']}), None)
         d.addErrback(lambda _ : 0) # We dont care about errors here
+
+    def check_bad_workers(self):
+        class dummyConfig():
+            class dummyManager():
+                hostCheckEnabled = True
+            manager = dummyManager()
+        checkBadHosts(dummyConfig(), self.pm) 
 
 # Overlay Communication
 class OverlayService(object):
@@ -428,14 +438,16 @@ def initApplication():
 
     overlay.d.addCallbacks(add_workers, start_workers)
 
-
+    def remove_default_worker(_):
+        tr.delHost('127.0.0.1:10000')
+    overlay.d.addBoth(remove_default_worker)
 
     for s in pm.services:
         print s
     lbs = LoadBalancedService(pm)
     #configuration = config.Config("config.xml")
     #print pm.trackers
-    os = LoadBalanceService(pm.getTracker('proxy1', 'group1'))
+    os = LoadBalanceService(pm.getTracker('proxy1', 'group1'), pm)
     os.setServiceParent(application)
     lbs.setServiceParent(application)
 

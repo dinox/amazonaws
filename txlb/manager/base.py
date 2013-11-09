@@ -474,6 +474,7 @@ class HostTracking(object):
             if self.failed.has_key(ip):
                 del self.failed[ip]
             del self.totalconns[ip]
+            del self.avg_process_time[ip]
         elif self.badhosts.has_key(ip):
             del self.badhosts[ip]
         else:
