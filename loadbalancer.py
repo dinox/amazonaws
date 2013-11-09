@@ -402,8 +402,9 @@ def initApplication():
         f = open("config.yaml", "r")
         config = yaml.load(f)
         f.close()
-
         N = config["workers"]
+        print "Start %i number of workers!" % N
+        #N = 2
 
         def _start_worker(_):
             deferred = deferToThread(overlay.aws.start_worker)
