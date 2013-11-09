@@ -63,8 +63,9 @@ class LoadBalanceService(service.Service):
         client._HTTP11ClientFactory.noisy = False # Remove log spam
         from twisted.internet.task import LoopingCall
         LoopingCall(self.reccuring).start(3)
-        LoopingCall(self.poll_from_LB).start(1)
+        LoopingCall(self.poll_from_LB).start(0.5)
         LoopingCall(self.check_bad_workers).start(5)
+        LoopingCall(self.check_if_need_autoscale).start(15)
 
     def startService(self):
         service.Service.startService(self)
@@ -94,6 +95,34 @@ class LoadBalanceService(service.Service):
                 hostCheckEnabled = True
             manager = dummyManager()
         checkBadHosts(dummyConfig(), self.pm) 
+
+    def check_if_need_autoscale(self):
+        global overlay
+        def _avg(numbers):
+            if not len(numbers):
+                return 0.0
+            return sum(numbers)/float(len(numbers))
+        stats = self.tracker.getStats()
+        avg = _avg([x for _, x in stats['avg_process_time'].items()])
+        openconns = sum([x for _, x in sorted(stats["openconns"].items())])
+        if avg > 2.0 and sum(openconns) > len(overlay.aws.workers):
+            print "autoscale %f" % avg
+
+    def autoscale(self):
+        global overlay
+        new_workers = len(overlay.aws.workers)
+        d = Deferred()
+        def _start_worker(_):
+            deferred = deferToThread(overlay.aws.start_worker)
+            def _addHost(w):
+                print "Started new host %s:10000" % str(w.instances[0].private_ip_address)
+                tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
+                return w
+            deferred.addCallback(_addHost)
+            return deferred
+        for i in range(1, new_workers):
+            d.addCallback(_start_worker)
+
 
 # Overlay Communication
 class OverlayService(object):
