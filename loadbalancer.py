@@ -58,14 +58,13 @@ class LoadBalanceService(service.Service):
         self.pm = pm
         self.agent = Agent(reactor)
         client._HTTP11ClientFactory.noisy = False # Remove log spam
-        from twisted.internet import reactor
-        reactor.callLater(60, delayed_func)
-        def delayed_func():
-            from twisted.internet.task import LoopingCall
-            LoopingCall(self.reccuring).start(3)
+        from twisted.internet.task import LoopingCall
+        LoopingCall(self.reccuring).start(3)
+        def _delayed_func():
             LoopingCall(self.poll_from_LB).start(0.5)
             LoopingCall(self.check_bad_workers).start(5)
             LoopingCall(self.check_if_need_autoscale).start(15)
+        reactor.callLater(60, _delayed_func)
 
     def startService(self):
         service.Service.startService(self)
