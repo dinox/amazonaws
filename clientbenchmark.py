@@ -1,10 +1,22 @@
-import subprocess, time
+import subprocess, time, optparse
 
 repetitions = 1
 number_of_requests = 400
 
+def parse_args():
+    usage = """usage: %prog [options]"""
+
+    parser = optparse.OptionParser(usage)
+
+    help = "The output file for the benchmark. Default is bench.dat"
+    parser.add_option('-f', '--file', type='string', help=help)
+
+    options, args = parser.parse_args()
+
+    return options
+
 def benchmark(c):
-    global repetitions, number_of_requests
+    global repetitions, number_of_requests, logfile
     t = float(0)
     i = 0
     while i < repetitions:
@@ -17,7 +29,7 @@ def benchmark(c):
     t = t / float(repetitions)
     t = t / float(number_of_requests)
     print "Benchmark %i:\t%f" % (c,t)
-    f = open("bench.dat","a")
+    f = open(logfile,"a")
     f.write("%i\t%f\n" % (c,t))
     f.close()
 
@@ -35,5 +47,7 @@ def benchmark_ab(c):
         return -1
     return end - start
 
+options = parse_args()
+logfile = options.file or "bench.dat"
 for c in [10,20,50,100,200]:
     benchmark(c)
