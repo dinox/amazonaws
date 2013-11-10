@@ -1,13 +1,14 @@
 import subprocess, time
 
-repetitions = 3
-number_of_requests = 1000
+repetitions = 1
+number_of_requests = 400
 
 def benchmark(c):
     global repetitions, number_of_requests
     t = float(0)
     i = 0
     while i < repetitions:
+        time.sleep(1)
         tmp = benchmark_ab(c)
         if (tmp > 0):
             t += tmp
@@ -22,7 +23,7 @@ def benchmark(c):
 
 def benchmark_ab(c):
     global number_of_requests
-    command = "ab -n %i -c %i -q 54.200.217.6:8080/3000" % (number_of_requests,c)
+    command = "ab -n %i -c %i -q 54.200.217.6:8080/6000" % (number_of_requests,c)
     print command
     start = time.time()
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
@@ -30,8 +31,9 @@ def benchmark_ab(c):
     end = time.time()
     if not process.returncode == 0:
         print "ab failed, retry"
+        time.sleep(10)
         return -1
     return end - start
 
-for c in [10,20,50,100,200,300,400,500,600,700,800,900,1000]:
+for c in [10,20,50,100,200]:
     benchmark(c)
