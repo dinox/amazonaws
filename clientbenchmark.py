@@ -37,7 +37,7 @@ def benchmark(c):
 
 def benchmark_ab(c):
     global number_of_requests
-    command = "ab -n %i -c %i -q 54.200.217.6:8080/6000" % (number_of_requests,c)
+    command = "ab -n %i -c %i -q 54.201.11.70:8080/6000" % (number_of_requests,c)
     print command
     start = time.time()
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
