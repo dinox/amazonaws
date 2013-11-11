@@ -16,4 +16,4 @@ logger:
     tcp_port: 10000
 
 workers:
-    4
+    8

@@ -1,7 +1,6 @@
 import subprocess, time, optparse
 
 repetitions = 1
-number_of_requests = 400
 
 def parse_args():
     usage = """usage: %prog [options]"""
@@ -10,6 +9,9 @@ def parse_args():
 
     help = "The output file for the benchmark. Default is bench.dat"
     parser.add_option('-f', '--file', type='string', help=help)
+
+    help = "Number or requests. Default is 400"
+    parser.add_option('-r', '--req', type='int',help=help)
 
     options, args = parser.parse_args()
 
@@ -49,5 +51,6 @@ def benchmark_ab(c):
 
 options = parse_args()
 logfile = options.file or "bench.dat"
+number_of_requests = options.req or 400
 for c in [10,20,50,100,200]:
     benchmark(c)
