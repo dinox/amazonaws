@@ -43,7 +43,7 @@ def eval_ab():
             spamreader = csv.reader(csvfile, delimiter='\t')
             for row in spamreader:
                 if count >= 0:
-                    ptime += float(row[3])
+                    ptime += float(row[4])
                 count += 1
     except Exception, e:
         print e
@@ -52,9 +52,9 @@ def eval_ab():
 def benchmark_ab(c):
     global ip,url
     # create ab params
-    reqs = 4*c
-    if reqs < 100:
-        reqs = 100
+    reqs = 2*c
+    if reqs < 20:
+        reqs = 20
     command = "ab -n %i -c %i -g ab.tmp %s:8080/%s" % (reqs,c,ip,url)
     print "Start apache benchmark: " + command
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
