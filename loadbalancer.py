@@ -64,7 +64,7 @@ class LoadBalanceService(service.Service):
             LoopingCall(self.poll_from_LB).start(0.5)
             LoopingCall(self.check_bad_workers).start(5)
             LoopingCall(self.check_if_need_autoscale).start(15)
-        reactor.callLater(60, _delayed_func)
+        reactor.callLater(0, _delayed_func)
 
     def startService(self):
         service.Service.startService(self)
@@ -97,6 +97,7 @@ class LoadBalanceService(service.Service):
 
     def check_if_need_autoscale(self):
         global overlay
+        config = overlay.config["autoscale"]
         def _avg(numbers):
             if not len(numbers):
                 return 0.0
@@ -104,10 +105,14 @@ class LoadBalanceService(service.Service):
         stats = self.tracker.getStats()
         avg = _avg([x for _, x in stats['avg_process_time'].items()])
         openconns = sum([x for _, x in sorted(stats["openconns"].items())])
-        if avg > 2.0 and sum(openconns) > len(overlay.aws.workers):
-            print "autoscale %f" % avg
+        if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
+            print "scale-up %f" % avg
+            self.scale_up()
+        else if avg < config["scale-down"]:
+            print "scale-down %f" % avg
+            self.scale_down()
 
-    def autoscale(self):
+    def scale_up(self):
         global overlay
         new_workers = len(overlay.aws.workers)
         d = Deferred()
@@ -121,6 +126,14 @@ class LoadBalanceService(service.Service):
             return deferred
         for i in range(1, new_workers):
             d.addCallback(_start_worker)
+
+    def scale_down(self):
+        global overlay
+        n_workers = len(overlay.aws.workers)
+        d = Deferred()
+        for i in range(1, n_workers / 2):
+            d.addCallback(overlay.aws.term_worker(overlay.aws.workers[i])
+
 
 
 # Overlay Communication
@@ -468,7 +481,7 @@ def initApplication():
 
     def remove_default_worker(_):
         tr.delHost('127.0.0.1:10000')
-    overlay.d.addBoth(remove_default_worker)
+    #overlay.d.addBoth(remove_default_worker)
 
     for s in pm.services:
         print s
