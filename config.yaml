@@ -17,3 +17,9 @@ logger:
 
 workers:
     2
+
+autoscale:
+    enabled: False
+    scale-down: 0.5
+    scale-up: 2.0
+    period: 30
