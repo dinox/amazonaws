@@ -54,6 +54,7 @@ class AmazonAWS(object):
 class LoadBalanceService(service.Service):
 
     def __init__(self, tracker, pm):
+        global overlay
         self.tracker = tracker
         self.pm = pm
         self.agent = Agent(reactor)
@@ -63,7 +64,8 @@ class LoadBalanceService(service.Service):
         def _delayed_func():
             LoopingCall(self.poll_from_LB).start(0.5)
             LoopingCall(self.check_bad_workers).start(5)
-            LoopingCall(self.check_if_need_autoscale).start(15)
+            if overlay.config["autoscale"]["enabled"]:
+                LoopingCall(self.check_if_need_autoscale).start(15)
         reactor.callLater(0, _delayed_func)
 
     def startService(self):

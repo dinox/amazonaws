@@ -19,7 +19,7 @@ workers:
     2
 
 autoscale:
-    enabled: False
+    enabled: True
     scale-down: 0.5
     scale-up: 2.0
     period: 30
