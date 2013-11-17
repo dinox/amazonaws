@@ -110,7 +110,7 @@ class LoadBalanceService(service.Service):
         if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
             print "scale-up %f" % avg
             self.scale_up()
-        else if avg < config["scale-down"]:
+        elif avg < config["scale-down"]:
             print "scale-down %f" % avg
             self.scale_down()
 
@@ -134,7 +134,7 @@ class LoadBalanceService(service.Service):
         n_workers = len(overlay.aws.workers)
         d = Deferred()
         for i in range(1, n_workers / 2):
-            d.addCallback(overlay.aws.term_worker(overlay.aws.workers[i])
+            d.addCallback(overlay.aws.term_worker(overlay.aws.workers[i]))
 
 
 
