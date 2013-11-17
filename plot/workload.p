@@ -25,19 +25,19 @@ set grid xtics ls 12
 #set y2label "Y2Y2Y2"
 #set y2tics auto 			# set this to something else, if you want
 #set y2range [0:330]
-
+set key font ",14"
 
 set   autoscale                        	# scale axes automatically
 unset log                              	# remove any log-scaling
 unset label                            	# remove any previous labels
-set xtic auto                           # set xtics to 1,2,3,.... If not wanted, use e.g. "set xtic auto"
-set ytic auto                          	# set ytics automatically
+set xtic auto font ",16"                # set xtics to 1,2,3,.... If not wanted, use e.g. "set xtic auto"
+set ytic auto font ",16"               	# set ytics automatically
 #set title "XXX"
 #set xr [0:20000]
 #set logscale x
 #set yr [0:1]
-set xlabel "Number of concurrent requests"
-set ylabel "Processed requests per second"
+set xlabel "Number of concurrent requests" font ",16"
+set ylabel "Processed requests per second" font ",16"
 set terminal pngcairo size 1600,400
 set output "workload.png"
 

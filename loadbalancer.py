@@ -108,9 +108,11 @@ class LoadBalanceService(service.Service):
         avg = _avg([x for _, x in stats['avg_process_time'].items()])
         openconns = sum([x for _, x in sorted(stats["openconns"].items())])
         if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
+            send_log("SCALE", "Scale up " + str(avg))
             print "scale-up %f" % avg
             self.scale_up()
         elif avg < config["scale-down"]:
+            send_log("SCALE", "Scale down " + str(avg))
             print "scale-down %f" % avg
             self.scale_down()
 
