@@ -1,12 +1,10 @@
 nodes:
     -
         host: "54.200.217.6"
-        #host: "localhost"
         tcp_port: 12345
         udp_port: 12346
     -
         host: "54.201.11.70"
-        #host: "localhost"
         tcp_port: 12345
         udp_port: 12346
 
@@ -19,7 +17,7 @@ workers:
     2
 
 autoscale:
-    enabled: True
+    enabled: False
     scale-down: 0.5
     scale-up: 2.0
     period: 30
