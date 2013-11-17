@@ -36,15 +36,19 @@ set ytic auto                          	# set ytics automatically
 #set xr [0:20000]
 #set logscale x
 #set yr [0:1]
-set xlabel "Time"
+set xlabel "Number of concurrent requests"
 set ylabel "Response time in ms"
 set terminal pngcairo size 1600,400
-set output "timeline.png"
+set output "latency_fixed.png"
+
+# standard plot (only one y-axis)
+#plot "../benchmark/w1_10000.dat" using 1:2 t '1 Worker' w lines ls 1 axis x1y1
+#plot "../benchmark/w2_10000.dat" using 1:2 t '2 Worker' w lines ls 2 axis x1y2
 
 # Two y-axes, here you have to specify which dataset should be plotted with which y-axis
-plot "../benchmark/t2_in.dat" using 1:2 t '1 Worker' w lines ls 1, \
-	"../benchmark/t2_in.dat" using 1:2 t '2 Workers' w lines ls 2, \
-	"../benchmark/t4_in.dat" using 1:2 t '3 Workers' w lines ls 3, \
-	"../benchmark/t8_in.dat" using 1:2 t '4 Workers' w lines ls 4
+plot "../benchmark/w1_10000.dat" using 1:2 t '1 Worker' w lines ls 1 axis x1y2, \
+	"../benchmark/w2_10000.dat" using 1:2 t '2 Workers' w lines ls 2 axis x1y2, \
+    "../benchmark/w4_10000.dat" using 1:2 t '4 Workers' w lines ls 3 axis x1y2, \
+    "../benchmark/w8_10000.dat" using 1:2 t '8 Workers' w lines ls 4 axis x1y2
 
 
