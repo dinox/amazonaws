@@ -14,7 +14,7 @@ logger:
     tcp_port: 10000
 
 workers:
-    8
+    1
 
 autoscale:
     enabled: False
