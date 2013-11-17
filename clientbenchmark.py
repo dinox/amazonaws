@@ -17,10 +17,6 @@ def parse_args():
     help = "Url send to the webserver. Default is 6000"
     parser.add_option('-u', '--url', type='string', help=help)
 
-    help = "Max number of concurrent requests. Default is 200. Min is 100, in\
-    100 steps"
-    parser.add_option('-c', '--conc', type='int', help=help)
-
     options, args = parser.parse_args()
 
     return options
@@ -77,11 +73,5 @@ url = options.url or "10000"
 f = open(logfile,"w")
 f.write("")
 f.close()
-for c in [1,2,5,10,20,50,100]:
+for c in [1,2,5,10,20,50,100,200]:
     benchmark(c)
-
-i = 200
-c = options.conc or 100
-while i < c:
-    benchmark(i)
-    i += 100
