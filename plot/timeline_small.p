@@ -33,20 +33,20 @@ unset log                              	# remove any log-scaling
 unset label                            	# remove any previous labels
 set xtic auto font ",16"                # set xtics to 1,2,3,.... If not wanted, use e.g. "set xtic auto"
 set ytic auto font ",16"               	# set ytics automatically
-set title "Latency test on Amazon instances (micro)"
+set title "Latency test on Amazon instances (small)"
 #set xr [0:20000]
 #set logscale x
 #set yr [0:1]
 set xlabel "Time since start of test (s)" font ",16"
 set ylabel "Response time (s)" font ",16"
 set terminal pngcairo size 1600,400
-set output "timeline.png"
+set output "timeline_small.png"
 
 # Two y-axes, here you have to specify which dataset should be plotted with which y-axis
-plot "../benchmark/t2_in.dat" using 1:($2/1000) t '1 Worker' w lines ls 1, \
-	"../benchmark/t2_in.dat" using 1:($2/1000) t '2 Workers' w lines ls 2, \
-	"../benchmark/t4_in.dat" using 1:($2/1000) t '3 Workers' w lines ls 3, \
-	"../benchmark/t8_in.dat" using 1:($2/1000) t '4 Workers' w lines ls 4, \
-    "../benchmark/ta_in.dat" using 1:($2/1000) t 'autoscaling' w lines ls 5
+plot "../benchmark/t2s_in.dat" using 1:($2/1000) t '1 Worker' w lines ls 1, \
+	"../benchmark/t2s_in.dat" using 1:($2/1000) t '2 Workers' w lines ls 2, \
+	"../benchmark/t4s_in.dat" using 1:($2/1000) t '3 Workers' w lines ls 3, \
+	"../benchmark/t8s_in.dat" using 1:($2/1000) t '4 Workers' w lines ls 4, \
+    "../benchmark/tas_in.dat" using 1:($2/1000) t 'autoscaling' w lines ls 5
 
 

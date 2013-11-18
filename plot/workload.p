@@ -32,7 +32,7 @@ unset log                              	# remove any log-scaling
 unset label                            	# remove any previous labels
 set xtic auto font ",16"                # set xtics to 1,2,3,.... If not wanted, use e.g. "set xtic auto"
 set ytic auto font ",16"               	# set ytics automatically
-#set title "XXX"
+set title "Workload test on Amazon instances (micro)"
 #set xr [0:20000]
 #set logscale x
 #set yr [0:1]
