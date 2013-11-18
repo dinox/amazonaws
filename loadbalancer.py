@@ -110,7 +110,7 @@ class LoadBalanceService(service.Service):
         if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
             send_log("SCALE", "Scale up " + str(avg))
             self.scale_up()
-        elif avg < config["scale-down"]:
+        elif avg < config["scale-down"] and len(overlay.aws.workers) >= overlay.config["workers"]:
             send_log("SCALE", "Scale down " + str(avg))
             self.scale_down()
 
@@ -133,11 +133,10 @@ class LoadBalanceService(service.Service):
     def scale_down(self):
         global overlay
         n_workers = len(overlay.aws.workers)
-        if n_workers <= overlay.config["workers"]:
-            return
         d = Deferred()
         for i in range(1, n_workers / 2):
             d.addCallback(overlay.aws.term_worker(overlay.aws.workers[i]))
+        d.callback(0);
 
 
 
@@ -241,6 +240,7 @@ class LogClientFactory(ClientFactory):
     def __init__(self, request):
         self.request = request
         self.deferred = Deferred()
+        self.noisy = False
 
     def clientConnectionFailed(self, connector, reason):
         if self.deferred is not None:
@@ -465,7 +465,8 @@ def initApplication():
         def _start_worker(_):
             deferred = deferToThread(overlay.aws.start_worker)
             def _addHost(w):
-                print "Started new host %s:10000" % str(w.instances[0].private_ip_address)
+                send_log("INFO", "Started new host %s:10000" %
+                        str(w.instances[0].private_ip_address))
                 tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
                 return w
             deferred.addCallback(_addHost)
@@ -478,7 +479,8 @@ def initApplication():
 
     def add_workers(_):
         for w in overlay.aws.workers:
-            print "Added host " + str(w.instances[0].private_ip_address)
+            send_log("INFO", "Added host " +
+                    str(w.instances[0].private_ip_address))
             tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
             id += 1
 
@@ -486,7 +488,7 @@ def initApplication():
 
     def remove_default_worker(_):
         tr.delHost('127.0.0.1:10000')
-    #overlay.d.addBoth(remove_default_worker)
+    overlay.d.addBoth(remove_default_worker)
 
     for s in pm.services:
         print s
