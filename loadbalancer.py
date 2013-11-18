@@ -62,9 +62,9 @@ class LoadBalanceService(service.Service):
         from twisted.internet.task import LoopingCall
         LoopingCall(self.reccuring).start(3)
         def _delayed_func():
-            LoopingCall(self.poll_from_LB).start(0.5)
             LoopingCall(self.check_bad_workers).start(5)
             if overlay.config["autoscale"]["enabled"]:
+                LoopingCall(self.poll_from_LB).start(0.5)
                 LoopingCall(self.check_if_need_autoscale).start(15)
         reactor.callLater(0, _delayed_func)
 
@@ -108,9 +108,11 @@ class LoadBalanceService(service.Service):
         avg = _avg([x for _, x in stats['avg_process_time'].items()])
         openconns = sum([x for _, x in sorted(stats["openconns"].items())])
         if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
+            send_log("SCALE", "Scale up " + str(avg))
             print "scale-up %f" % avg
             self.scale_up()
         elif avg < config["scale-down"]:
+            send_log("SCALE", "Scale down " + str(avg))
             print "scale-down %f" % avg
             self.scale_down()
 

@@ -68,7 +68,7 @@ def benchmark_ab(c):
 options = parse_args()
 logfile = options.file or "bench.dat"
 ip = options.ip or "54.200.217.6"
-url = options.url or "4000"
+url = options.url or "10000"
 
 f = open(logfile,"w")
 f.write("")
