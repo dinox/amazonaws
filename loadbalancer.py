@@ -139,7 +139,7 @@ class LoadBalanceService(service.Service):
         global overlay
         n_workers = len(overlay.aws.workers)
         d = Deferred()
-        for i in range(1, n_workers / 2):
+        for i in range(1, 1 + n_workers / 2):
             d.addCallback(overlay.aws.term_worker(overlay.aws.workers[i]))
         d.callback(0);
 
@@ -501,10 +501,6 @@ def initApplication():
     #configuration = config.Config("config.xml")
     #print pm.trackers
     os = LoadBalanceService(pm.getTracker('proxy1', 'group1'), pm)
-    d = Deferred()
-    d.addCallback(start_workers)
-    d.addCallback(lambda _ : os.scale_up())
-    d.callback(0)
     os.setServiceParent(application)
     lbs.setServiceParent(application)
 
