@@ -121,7 +121,8 @@ class LoadBalanceService(service.Service):
         def _start_worker(_):
             deferred = deferToThread(overlay.aws.start_worker)
             def _addHost(w):
-                print "Started new host %s:10000" % str(w.instances[0].private_ip_address)
+                log_msg("Started new host %s:10000" %
+                        str(w.instances[0].private_ip_address))
                 tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
                 return w
             deferred.addCallback(_addHost)
