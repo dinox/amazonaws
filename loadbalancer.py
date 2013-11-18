@@ -38,7 +38,8 @@ class AmazonAWS(object):
         self.workers = []
 
     def start_worker(self):
-        w = self.conn.run_instances("ami-64ad3554", key_name='herik#cburkhal', instance_type='t1.micro')
+        w = self.conn.run_instances("ami-64ad3554", key_name='herik#cburkhal',\
+                instance_type='m1.small')
         self.workers.append(w)
         return w
 
