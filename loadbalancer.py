@@ -65,7 +65,7 @@ class LoadBalanceService(service.Service):
             LoopingCall(self.check_bad_workers).start(5)
             if overlay.config["autoscale"]["enabled"]:
                 LoopingCall(self.poll_from_LB).start(0.5)
-                LoopingCall(self.check_if_need_autoscale).start(15)
+                LoopingCall(self.check_if_need_autoscale).start(60)
         reactor.callLater(0, _delayed_func)
 
     def startService(self):
