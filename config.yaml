@@ -14,10 +14,10 @@ logger:
     tcp_port: 10000
 
 workers:
-    8
+    1
 
 autoscale:
-    enabled: False
+    enabled: True
     scale-down: 0.5
     scale-up: 2.0
     period: 20
