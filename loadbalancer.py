@@ -127,12 +127,13 @@ class LoadBalanceService(service.Service):
             def _addHost(w):
                 send_log("INFO", "Started new host %s:10000" %
                         str(w.instances[0].private_ip_address))
-                tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
+                self.tracker.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
                 return w
             deferred.addCallback(_addHost)
             return deferred
-        for i in range(1, new_workers):
+        for i in range(1, new_workers+1):
             d.addCallback(_start_worker)
+        d.callback(0)
 
     def scale_down(self):
         global overlay
@@ -500,6 +501,10 @@ def initApplication():
     #configuration = config.Config("config.xml")
     #print pm.trackers
     os = LoadBalanceService(pm.getTracker('proxy1', 'group1'), pm)
+    d = Deferred()
+    d.addCallback(start_workers)
+    d.addCallback(lambda _ : os.scale_up())
+    d.callback(0)
     os.setServiceParent(application)
     lbs.setServiceParent(application)
 
