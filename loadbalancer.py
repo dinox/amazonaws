@@ -65,23 +65,26 @@ class LoadBalanceService(service.Service):
             LoopingCall(self.check_bad_workers).start(5)
             if overlay.config["autoscale"]["enabled"]:
                 LoopingCall(self.poll_from_LB).start(0.5)
-                LoopingCall(self.check_if_need_autoscale).start(15)
+                LoopingCall(self.check_if_need_autoscale).start(60)
         reactor.callLater(0, _delayed_func)
 
     def startService(self):
         service.Service.startService(self)
 
     def reccuring(self):
+        global overlay
         stats = self.tracker.getStats()
         hosts = [x for x, _ in sorted(stats["totals"].items())]
         openconns = [x for _, x in sorted(stats["openconns"].items())]
         totals = [x for _, x in sorted(stats["totals"].items())]
         bad = [x for x, _ in sorted(stats["bad"].items())]
-        print "Hosts: " + str(hosts)
-        print "Open conns: " + str(openconns)
-        print "Totals: " + str(totals)
-        print "Avg: " + str(stats['avg_process_time'])
-        print "Bad: " + str(bad)
+        send_log("INFO", "Hosts: " + str(hosts))
+        send_log("INFO", "Open conns: " + str(openconns))
+        send_log("INFO", "Totals: " + str(totals))
+        send_log("INFO", "Avg: " + str(stats['avg_process_time']))
+        send_log("INFO", "Bad: " + str(bad))
+        send_log("INFO", "Workers: " + str([w.instances[0].id for \
+            w in overlay.aws.workers]))
 
     # Reccuring polling serice for measuring process time when there is no outer
     # requests happening
@@ -107,11 +110,12 @@ class LoadBalanceService(service.Service):
         stats = self.tracker.getStats()
         avg = _avg([x for _, x in stats['avg_process_time'].items()])
         openconns = sum([x for _, x in sorted(stats["openconns"].items())])
-        if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
-            print "scale-up %f" % avg
+        if avg > config["scale-up"] and openconns > len(overlay.aws.workers) and\
+                len(overlay.aws.workers) <= 8:
+            send_log("SCALE", "Scale up " + str(avg))
             self.scale_up()
-        elif avg < config["scale-down"]:
-            print "scale-down %f" % avg
+        elif avg < config["scale-down"] and len(overlay.aws.workers) >= overlay.config["workers"]:
+            send_log("SCALE", "Scale down " + str(avg))
             self.scale_down()
 
     def scale_up(self):
@@ -119,22 +123,26 @@ class LoadBalanceService(service.Service):
         new_workers = len(overlay.aws.workers)
         d = Deferred()
         def _start_worker(_):
+            send_log("INFO", "Deferred new worker to thread")
             deferred = deferToThread(overlay.aws.start_worker)
             def _addHost(w):
-                print "Started new host %s:10000" % str(w.instances[0].private_ip_address)
-                tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
+                send_log("INFO", "Started new host %s:10000" %
+                        str(w.instances[0].private_ip_address))
+                self.tracker.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
                 return w
             deferred.addCallback(_addHost)
             return deferred
-        for i in range(1, new_workers):
+        for i in range(1, new_workers+1):
             d.addCallback(_start_worker)
+        d.callback(0)
 
     def scale_down(self):
         global overlay
         n_workers = len(overlay.aws.workers)
         d = Deferred()
-        for i in range(1, n_workers / 2):
+        for i in range(1, 1 + n_workers / 2):
             d.addCallback(overlay.aws.term_worker(overlay.aws.workers[i]))
+        d.callback(0);
 
 
 
@@ -238,6 +246,7 @@ class LogClientFactory(ClientFactory):
     def __init__(self, request):
         self.request = request
         self.deferred = Deferred()
+        self.noisy = False
 
     def clientConnectionFailed(self, connector, reason):
         if self.deferred is not None:
@@ -462,7 +471,8 @@ def initApplication():
         def _start_worker(_):
             deferred = deferToThread(overlay.aws.start_worker)
             def _addHost(w):
-                print "Started new host %s:10000" % str(w.instances[0].private_ip_address)
+                send_log("INFO", "Started new host %s:10000" %
+                        str(w.instances[0].private_ip_address))
                 tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
                 return w
             deferred.addCallback(_addHost)
@@ -475,7 +485,8 @@ def initApplication():
 
     def add_workers(_):
         for w in overlay.aws.workers:
-            print "Added host " + str(w.instances[0].private_ip_address)
+            send_log("INFO", "Added host " +
+                    str(w.instances[0].private_ip_address))
             tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
             id += 1
 
@@ -483,7 +494,7 @@ def initApplication():
 
     def remove_default_worker(_):
         tr.delHost('127.0.0.1:10000')
-    #overlay.d.addBoth(remove_default_worker)
+    overlay.d.addBoth(remove_default_worker)
 
     for s in pm.services:
         print s
