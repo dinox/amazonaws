@@ -77,11 +77,11 @@ class LoadBalanceService(service.Service):
         openconns = [x for _, x in sorted(stats["openconns"].items())]
         totals = [x for _, x in sorted(stats["totals"].items())]
         bad = [x for x, _ in sorted(stats["bad"].items())]
-        print "Hosts: " + str(hosts)
-        print "Open conns: " + str(openconns)
-        print "Totals: " + str(totals)
-        print "Avg: " + str(stats['avg_process_time'])
-        print "Bad: " + str(bad)
+        log_msg("Hosts: " + str(hosts))
+        log_msg("Open conns: " + str(openconns))
+        log_msg("Totals: " + str(totals))
+        log_msg("Avg: " + str(stats['avg_process_time']))
+        log_msg("Bad: " + str(bad))
 
     # Reccuring polling serice for measuring process time when there is no outer
     # requests happening
@@ -109,11 +109,11 @@ class LoadBalanceService(service.Service):
         openconns = sum([x for _, x in sorted(stats["openconns"].items())])
         if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
             send_log("SCALE", "Scale up " + str(avg))
-            print "scale-up %f" % avg
+            log_msg("scale-up %f" % avg)
             self.scale_up()
         elif avg < config["scale-down"]:
             send_log("SCALE", "Scale down " + str(avg))
-            print "scale-down %f" % avg
+            log_msg("scale-down %f" % avg)
             self.scale_down()
 
     def scale_up(self):
@@ -135,6 +135,8 @@ class LoadBalanceService(service.Service):
     def scale_down(self):
         global overlay
         n_workers = len(overlay.aws.workers)
+        if n_workers <= overlay.config["workers"]:
+            return
         d = Deferred()
         for i in range(1, n_workers / 2):
             d.addCallback(overlay.aws.term_worker(overlay.aws.workers[i]))
