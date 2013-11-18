@@ -77,11 +77,11 @@ class LoadBalanceService(service.Service):
         openconns = [x for _, x in sorted(stats["openconns"].items())]
         totals = [x for _, x in sorted(stats["totals"].items())]
         bad = [x for x, _ in sorted(stats["bad"].items())]
-        send_log("Hosts: " + str(hosts))
-        send_log("Open conns: " + str(openconns))
-        send_log("Totals: " + str(totals))
-        send_log("Avg: " + str(stats['avg_process_time']))
-        send_log("Bad: " + str(bad))
+        send_log("INFO", "Hosts: " + str(hosts))
+        send_log("INFO", "Open conns: " + str(openconns))
+        send_log("INFO", "Totals: " + str(totals))
+        send_log("INFO", "Avg: " + str(stats['avg_process_time']))
+        send_log("INFO", "Bad: " + str(bad))
 
     # Reccuring polling serice for measuring process time when there is no outer
     # requests happening
@@ -109,11 +109,9 @@ class LoadBalanceService(service.Service):
         openconns = sum([x for _, x in sorted(stats["openconns"].items())])
         if avg > config["scale-up"] and openconns > len(overlay.aws.workers):
             send_log("SCALE", "Scale up " + str(avg))
-            send_log("scale-up %f" % avg)
             self.scale_up()
         elif avg < config["scale-down"]:
             send_log("SCALE", "Scale down " + str(avg))
-            send_log("scale-down %f" % avg)
             self.scale_down()
 
     def scale_up(self):
@@ -123,7 +121,7 @@ class LoadBalanceService(service.Service):
         def _start_worker(_):
             deferred = deferToThread(overlay.aws.start_worker)
             def _addHost(w):
-                send_log("Started new host %s:10000" %
+                send_msg("Started new host %s:10000" %
                         str(w.instances[0].private_ip_address))
                 tr.newHost((w.instances[0].private_ip_address, 3000), "host" + str(id))
                 return w
@@ -415,7 +413,7 @@ class Overlay():
 
 # send TCP message
 # msg should contain a command, se ClientService or MonitorService
-def send_log(address, msg):
+def send_msg(address, msg):
     from twisted.internet import reactor
     factory = LogClientFactory(msg)
     reactor.connectTCP(address["host"], address["tcp_port"], factory)
@@ -432,7 +430,7 @@ def send_log(event, desc):
     data["command"] = "log"
     data["id"] = overlay.my_node["id"]
     print("%s LOG: %s: %s" % (data["time"],event,desc))
-    send_log(logger, data)
+    send_msg(logger, data)
 
 # cleanup and exit
 def before_exit():
