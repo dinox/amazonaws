@@ -65,8 +65,8 @@ class LoadBalanceService(service.Service):
         def _delayed_func():
             LoopingCall(self.check_bad_workers).start(5)
             if overlay.config["autoscale"]["enabled"]:
-                LoopingCall(self.poll_from_LB).start(0.5)
-                LoopingCall(self.check_if_need_autoscale).start(60)
+                LoopingCall(self.poll_from_LB).start(1)
+                LoopingCall(self.check_if_need_autoscale).start(30)
         reactor.callLater(0, _delayed_func)
 
     def startService(self):
@@ -90,7 +90,7 @@ class LoadBalanceService(service.Service):
     # Reccuring polling serice for measuring process time when there is no outer
     # requests happening
     def poll_from_LB(self):
-        d = self.agent.request('GET', 'http://0.0.0.0:8080/10000',
+        d = self.agent.request('GET', 'http://0.0.0.0:8080/5000',
                     Headers({'User-Agent': ['Twisted Web Client']}), None)
         d.addErrback(lambda _ : 0) # We dont care about errors here
 
