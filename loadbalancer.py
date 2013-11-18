@@ -72,6 +72,7 @@ class LoadBalanceService(service.Service):
         service.Service.startService(self)
 
     def reccuring(self):
+        global overlay
         stats = self.tracker.getStats()
         hosts = [x for x, _ in sorted(stats["totals"].items())]
         openconns = [x for _, x in sorted(stats["openconns"].items())]
@@ -82,6 +83,8 @@ class LoadBalanceService(service.Service):
         send_log("INFO", "Totals: " + str(totals))
         send_log("INFO", "Avg: " + str(stats['avg_process_time']))
         send_log("INFO", "Bad: " + str(bad))
+        send_log("INFO", "Workers: " + str([w.instances[0].id for \
+            w in overlay.aws.workers]))
 
     # Reccuring polling serice for measuring process time when there is no outer
     # requests happening
