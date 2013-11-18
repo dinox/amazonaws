@@ -15,6 +15,7 @@ set style line 1 lc rgb '#f1595f' pt 1 ps 1 lt 1 lw 2 # --- red
 set style line 2 lc rgb '#79c36a' pt 1 ps 1 lt 1 lw 2 # --- green
 set style line 3 lc rgb '#599ad3' pt 1 ps 1 lt 1 lw 2 # --- blue
 set style line 4 lc rgb '#f9a65a' pt 1 ps 1 lt 1 lw 2 # --- orange
+set style line 5 lc rgb '#6e66ab' pt 1 ps 1 lt 1 lw 2 # --- violett
 
 # define grid to be only at x-axis and gray with dotted lines
 set style line 12 lc rgb '#808080' lt 0 lw 2
@@ -45,6 +46,7 @@ set output "timeline.png"
 plot "../benchmark/t2_in.dat" using 1:($2/1000) t '1 Worker' w lines ls 1, \
 	"../benchmark/t2_in.dat" using 1:($2/1000) t '2 Workers' w lines ls 2, \
 	"../benchmark/t4_in.dat" using 1:($2/1000) t '3 Workers' w lines ls 3, \
-	"../benchmark/t8_in.dat" using 1:($2/1000) t '4 Workers' w lines ls 4
+	"../benchmark/t8_in.dat" using 1:($2/1000) t '4 Workers' w lines ls 4, \
+    "../benchmark/ta_in.dat" using 1:($2/1000) t 'autoscaling' w lines ls 5
 
 

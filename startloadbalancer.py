@@ -4,7 +4,7 @@ ips = ["54.200.217.6", "54.201.11.70"]
 lbs = []
 conn = boto.ec2.connect_to_region("us-west-2")
 for ip in ips:
-    reservation = conn.run_instances("ami-b662fa86", key_name='herik#cburkhal', instance_type='t1.micro')
+    reservation = conn.run_instances("ami-b662fa86", key_name='herik#cburkhal',instance_type='m1.small')
     instance = reservation.instances[0]
     lbs.append(instance)
     print 'Waiting for instance to start...'
