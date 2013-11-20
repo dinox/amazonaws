@@ -38,7 +38,7 @@ set title "Workload test on Amazon instances (micro)"
 #set yr [0:1]
 set xlabel "Number of concurrent requests" font ",16"
 set ylabel "Processed requests per second" font ",16"
-set terminal pngcairo size 1600,400
+set terminal pngcairo size 1000,500
 set output "workload.png"
 
 # Two y-axes, here you have to specify which dataset should be plotted with which y-axis
