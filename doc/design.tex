@@ -120,12 +120,24 @@ In this part we will compare the Amazon load-balancer with our own implementatio
 
 \section{Implementation}
 
-erik ...
+We have used the twisted library in python and found a open source load balancer named \verb|txLoadBalancer| to do our implementation. It had functions for proxying requests, scheduling the processing nodes and working as a reverse proxy. To this we added the overlay code, code for measuring the request processing time and code to scale up and down the processing nodes.
+
+\subsection{Overlay}
+Our overlay network consists of a coordinator load balancer and slave load balancers. The coordinator is responsible for the autoscaling of the network and maintaining of the overlay, otherwise the load balancers are identical. Note that the processing nodes is not part of the overlay, they are not aware of anything else than process incoming requests from the load balancers. The overlay nodes has currently not any ability to start or stop each other, it is purely a this of redundancy. With this said, a couple of these load balancers can tolerate a very high number of requests per second and bottleneck should not be the load balancers. A couple of load balancers are also "cheap", whereas a huge number of processing nodes are not. We can therefore use use a safe margin when we dimension the number of load balancers without this having any important impact on the budget.
+
+\subsection{Request processing time}
+To get a good measurement of the network load we need to use a way to measure the amount of incoming request combined with their difficulty to process. A problem that arises here is that we can not assume anything of the distribution of request to different load balancers, and measuring at all of them is hard to synchronize. Therefore, we chose to measure the average processing time, since this is dependant on both the difficulty to process and the amount of requests. It is also very easy to measure at a central location, i.e. the coordinator load balancer. 
+
+To avoid the problem when the load balancer does not get any reguests (and therefore can't calculate an average) we send dummy requests from the coordinator load balancer. The average is then calculated as
+$$\frac{1}{N}\sum^N_{i=1} T_i$$
+where $T_i$ is an exponential moving average of the request processing time at processing node $i$ and $N$ is the number of processing nodes.
+\subsection{Autoscaling}
+We use, as noted before, the average request processing time to determine when to scale up or down the processing node. It is the coordinator load balancer that is responsible for this, and it will have to config parameters to determine this, namely the scale-down parameter \verb|scale_down| and the scale-up parameter \verb|scale_up|. It simply compares the current average with the parameters and scales up if current average is above the \verb|scale_up| parameter. Scale down is done in the opposite way. On each scale we do doubling or halving of the network to achieve a certain size in $log(n)$ steps. It can therefore scale up or down very fast and will tolerate very fast changes in load without failing requests.
 
 \section{Problems}
+We noticed a couple of problems during our experiments on the Amazon EC2 cloud. We noticed that a start-up of a node can take up to 60 seconds, something that has impact on the speed of scaling. This problem can be seen in the graphs, where the load balancer sees a high load and initiates a scale up but it takes up to 60 seconds for this to take effect. 
 
-erik ...
-
+We also had problems with CPU throttling on the micro instances, where you are granted a "free" CPU burst for some minutes and then restricted to a very low amount of CPU. This makes the average request processing time skyrocket even faster and the load balancer sees this as a increased load and scales up the nodes even faster. We therefore do not recommend running this on micro instances, it is better to use small instances where the CPU capacity is guaranteed over time.
 \section{Results}
 
 Result description latency (follows...)
