@@ -28,6 +28,7 @@
 \graphicspath{{./}}
 
 \usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
+\usepackage{float} % set the figures precisely
 
 \usepackage{sectsty} % Allows customizing section commands
 \allsectionsfont{\centering \normalfont\scshape} % Make all sections centered, the default font and small caps
@@ -72,7 +73,7 @@
 
 \maketitle % Print the title
 
-\section{Proposal}
+\section{Part A - Proposal}
 
 \subsection{Application}
 
@@ -88,7 +89,7 @@ The members of the overlay network (the load-balancers) elect a coordinator and 
   node/.style = {circle, text=black, draw=black},
 }
 
-\begin{figure}[h!]
+\begin{figure}[H]
 \begin{center}
 \begin{tikzpicture}[node distance=1cm]
   
@@ -118,7 +119,7 @@ The coordinator in the load balancer network performs the auto-scaling. If the l
 If the workload decreases, the reverse will be done.
 In this part we will compare the Amazon load-balancer with our own implementation of a load-balancer, where we detect heavy-loaded machines if the latency increases or from periodically sending ping messages.
 
-\section{Implementation}
+\section{Part B and C - Implementation}
 
 We have used the twisted library in python and found a open source load balancer named \verb|txLoadBalancer| to do our implementation. It had functions for proxying requests, scheduling the processing nodes and working as a reverse proxy. To this we added the overlay code, code for measuring the request processing time and code to scale up and down the processing nodes.
 
@@ -138,9 +139,10 @@ We use, as noted before, the average request processing time to determine when t
 We noticed a couple of problems during our experiments on the Amazon EC2 cloud. We noticed that a start-up of a node can take up to 60 seconds, something that has impact on the speed of scaling. This problem can be seen in the graphs, where the load balancer sees a high load and initiates a scale up but it takes up to 60 seconds for this to take effect. 
 
 We also had problems with CPU throttling on the micro instances, where you are granted a "free" CPU burst for some minutes and then restricted to a very low amount of CPU. This makes the average request processing time skyrocket even faster and the load balancer sees this as a increased load and scales up the nodes even faster. We therefore do not recommend running this on micro instances, it is better to use small instances where the CPU capacity is guaranteed over time.
+
 \section{Results}
 
-Result description latency (follows...)
+The average response time per request increases linear with the number of concurrent requests. This is due to the fact that the twisted framework runs the requests in parallel. For up to 200 concurrent requests, there is no indication of an overhead while handling that many requests. The figures for a micro and a small instance on the Amazon EC2 Cloud are very similar, the only difference is the response time, which is higher for the small instance. This is due to the fact that the micro instance has a burst mode, for a small amount of time the processing speed is much higher than the small instance. However, once this time is up, the processing speed drops significantly below the value of the small instance. 
 
 \begin{figure*}[h!]
 \includegraphics[width=\columnwidth]{../plot/latency_fixed.png}
@@ -150,7 +152,7 @@ Result description latency (follows...)
 \includegraphics[width=\columnwidth]{../plot/latency_fixed_small.png}
 \end{figure*}
 
-Result description workload (follows...)
+The number of processed request is calculated from the average response time per request. As expected, for one concurrent request the response time and therefore the throughput are almost identical. However, with twice as many worker server machines, the number of processed requests per second almost doubles as well. For example on a small instance, 2 worker server process on average about 2.5 requests per second, where 4 worker server are able to process about 5 requests per second.
 
 \begin{figure*}[h!]
 \includegraphics[width=\columnwidth]{../plot/workload.png}
@@ -160,7 +162,10 @@ Result description workload (follows...)
 \includegraphics[width=\columnwidth]{../plot/workload_small.png}
 \end{figure*}
 
-Result description timeline (follows...)
+The latency test measures the response time per request over a period of 5 minutes with 50 concurrent requests. Whenever a requests finished, a new one was started such that the system had always the same amount of workload.
+Unfortunately, we run out of time and therefore weren't able to perform the test with 1 Worker on an Amazon micro instance.
+
+The lines for a fixed number of workers have a small fluctuation around a average response time. With a longer running time, the fluctuation increases on the micro instance. For the auto-scaling part the response time start at a high level and drops around 150 seconds on both micro and small instances. On the small instance it has then the shortest response time and is very stable, while on the micro instance there is a high fluctuation. Even though the auto-scaling starts more than 8 new servers, there is only one signification drop in the line. So after a long initialization phase the machines start there work closely after each other. For the auto-scaling on small instances, the significant drop descends to a response time of around 10 seconds, and then it decreases in small steps until it is below 5 seconds. So there seem to be more machines starting their work. This is due to the fact that the first machine doubles the processing power, while when the system has for example 8 worker servers and a new one joins the system, the processing power gets only a small improvement.
 
 \begin{figure*}[h!]
 \includegraphics[width=\columnwidth]{../plot/timeline.png}
@@ -170,6 +175,53 @@ Result description timeline (follows...)
 \includegraphics[width=\columnwidth]{../plot/timeline_small.png}
 \end{figure*}
 
+\newpage
+
+\section{Part D - Billing}
+
+\subsection{Scenario}
+
+Estimate the cost for hosting a small business using the public-cloud of Amazon or Microsoft or having it in-house. The goal is to find the cheapest configuration that fullfills all requirements, which are:
+
+\begin{itemize}
+	\item 1 web server - hosting everything (Suse Linux Enterprise 64 bit, 4 CPUs, 8GB RAM)
+	\item 1 TB storage
+	\item 10 GB / week data transfer
+	\item SLES - SUSE Linux Enterprise Server - system type
+\end{itemize}
+
+\subsection{Comparison}
+
+The comparison is made for the US market, therefore all prices are US dollars.
+Amazon provides a Free Tier Discount for the first year (1.68\$ per month) and discount for long term reservations with payment upfront.
+
+\begin{itemize}
+	\item Amazon: 4 CPU, 15 GB RAM, 1680 GB Storage, 10 GB / week (m1.xlarge)
+	\item Windows Azure : 8x1.6GHz CPU, 14 GB RAM, 2040 GB Storage, 44 GB / month (XL Linux)
+	\item IBM (in-house and SmartCloud): 4 CPU, 8 GB RAM, 1084 GB Storage, 10 GB / week (64-bit Silver)
+\end{itemize}
+
+\begin{table}
+	\centering
+	\begin{tabular}{| l | r | r | r |}
+		\hline
+		& 1 Month & 1 Year & 3 Years \\
+		\hline
+		Amazon & 427.92 & 2657.18 & 5309.96 \\
+		\hline
+		Azure & 361.80 & 4341.60 & 13071.60 \\
+		\hline
+		In-house & 5570.00 & 12093.00 & 26325.00 \\
+		\hline
+		SmartCloud & 250.00 & 3000.00 & 9000.00 \\
+		\hline
+	\end{tabular}
+	\caption{Price comparison public-cloud, in-house. All values in \$.}
+	\label{tab:pricetable}
+\end{table}
+
+
+The IBM SmartCloud is the cheapest for a short time of usage. However, it has the advantage to match the requirements accurately. Amazon gets huge discounts for a long reservation, it is the cheapest in the long run. Additionally, the virtual machine provides almost twice as much RAM as requested and more than 1.5 times the amount of storage. Windows Azure is the most expensive cloud solution, but this is partly due to the fact that it offers almost twice as many CPU,RAM and storage. A cheaper virtual machine that fits the requirements except the RAM (only 7 GB) costs below 190\$ per month and would be the cheapest. Of course, this could be done for Amazon as well, reducing the price for a month below 250\$. So while it is arguably which vendor is the cheapest in a short run, Amazon is definitely the best choice for a longer period. The in-house estimate has an capital investment of 4977\$ and a high 593\$ monthly cost. So even after the first investment, the in-house solution hast he highest maintenance costs.
 
 
 

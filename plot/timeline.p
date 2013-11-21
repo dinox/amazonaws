@@ -43,8 +43,7 @@ set terminal pngcairo size 1000,500
 set output "timeline.png"
 
 # Two y-axes, here you have to specify which dataset should be plotted with which y-axis
-plot "../benchmark/t2_in.dat" using 1:($2/1000) t '1 Worker' w lines ls 1, \
-	"../benchmark/t2_in.dat" using 1:($2/1000) t '2 Workers' w lines ls 2, \
+plot "../benchmark/t2_in.dat" using 1:($2/1000) t '2 Workers' w lines ls 2, \
 	"../benchmark/t4_in.dat" using 1:($2/1000) t '4 Workers' w lines ls 3, \
 	"../benchmark/t8_in.dat" using 1:($2/1000) t '8 Workers' w lines ls 4, \
     "../benchmark/ta_in.dat" using 1:($2/1000) t 'autoscaling' w lines ls 5
