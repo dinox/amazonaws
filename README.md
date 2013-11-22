@@ -19,3 +19,8 @@ and runs the factorial server which can calculate factorials. For example
 
     54.200.217.6:8080/3
 will return 6.
+
+Clientbenchmark
+
+The clientbenchmark file performs the benchmark test on the running system,
+using the elastic ip's for the connection. Usage: python clientbenchmark.py
